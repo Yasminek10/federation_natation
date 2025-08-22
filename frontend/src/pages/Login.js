@@ -1,95 +1,82 @@
-import React, { useState } from "react";
+import React ,{ useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/login.css";
+import logo from "../assets/logo-ftn.png"; // place your logo inside src/assets/
 
-export default function Login() {
+function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const onSubmit = async (e) => {
+  const [error, setError] = useState("");
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
+
     try {
-      setLoading(true);
-      // Appel backend optionnel (Flask): http://localhost:5000/api/login
-      const res = await fetch("http://localhost:5000/api/login", {
+      const response = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, remember, provider: "basic" })
+        body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error("Erreur serveur");
-      const data = await res.json();
-      setMessage(data.message || "Connexion réussie ✅");
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        if (data.role === "admin") {
+          navigate("/home");
+        } else if (data.role === "coach") {
+          navigate("/coach");
+        }
+      } else {
+        setError(data.message);
+      }
     } catch (err) {
-      setMessage("Impossible de se connecter. Vérifiez vos identifiants.");
-    } finally {
-      setLoading(false);
+      setError("Erreur serveur");
     }
   };
-
   return (
-    <main className="login">
-      <section className="login__card" aria-labelledby="loginTitle">
-        <header className="login__header">
-          <h1 id="loginTitle" className="login__title">Bienvenue</h1>
-          <p className="login__subtitle">Connectez-vous pour accéder à votre compte</p>
-        </header>
+    <div className="login-container">
+      {/* Header always top-right */}
+      <div className="login-header">
+        <img src={logo} alt="FTN Logo" className="ftn-logo" />
+        <h1>Fédération Tunisienne de Natation</h1>
+      </div>
 
-        <form className="login__form" onSubmit={onSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="email" className="label">Email</label>
-            <input
-              id="email"
+      {/* Left side with background image */}
+      <div className="login-image"></div>
+
+      {/* Right side with login form */}
+      <div className="login-form">
+        {/* Centered form title */}
+        <h2 className="form-title">Mon Compte</h2>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">Adresse email</label>
+             <input
               type="email"
-              className="input"
-              placeholder="prenom.nom@email.com"
+              id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="username"
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="password" className="label">Mot de passe</label>
-            <input
-              id="password"
+          <div className="form-group">
+            <label htmlFor="password">Mot de passe</label>
+           <input
               type="password"
-              className="input"
-              placeholder="••••••••"
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
             />
           </div>
-
-          <div className="row between">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />
-              <span>Se souvenir de moi</span>
-            </label>
-            <a className="link" href="#">Mot de passe oublié ?</a>
-          </div>
-
-          <button type="submit" className="btn btn--primary btn--full" disabled={loading}>
-            {loading ? "Connexion..." : "Se connecter"}
-          </button>
-
-          {message && <p className="status" role="status">{message}</p>}
+{error && <p className="error">{error}</p>}
+          <button type="submit" className="btn-login">Se connecter</button>
         </form>
-
-        <footer className="login__footer">
-          <span>Pas de compte ?</span>
-          <a className="link" href="#">Créer un compte</a>
-        </footer>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
+
+export default Login;

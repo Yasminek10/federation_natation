@@ -6,7 +6,6 @@ import logo from "../assets/logo-ftn.png"; // Logo de la fédération
 import flag from "../assets/drapeau-tunisie.png"; // Drapeau tunisien
 
 function Home() {
-    const [loginOpen, setLoginOpen] = useState(false);
   
   return (
     <div className="home">
@@ -32,33 +31,12 @@ function Home() {
         <h2>Bienvenue sur le site officiel</h2>
         <p>Explorez les compétitions de natation Tunisiennes, consultez les profils des athlètes et suivez les résultats.</p>
         <div class="btn-container">
-          <button className="connect-btn" onClick={() => setLoginOpen(true)}>Se connecter</button>
+          <button className="connect-btn" >Explorer</button>
         </div>
       </section>
-{loginOpen && (
-  <div className="popup-overlay">
-    <div className="popup">
-      <h2>Connexion</h2>
-     <form className="form">
-  <div className="form-group">
-    <label htmlFor="email">Adresse email</label>
-    <input id="email" type="email" placeholder="Adresse email" />
-  </div>
 
-  <div className="form-group">
-    <label htmlFor="password">Mot de passe</label>
-    <input id="password" type="password" placeholder="Mot de passe" />
-  </div>
 
-  <div className="popup-actions">
-    <button type="button" onClick={() => setLoginOpen(false)}>Fermer</button>
-    <button type="submit">Se connecter</button>
-  </div>
-</form>
 
-    </div>
-  </div>
-)}
       {/* ===== Section Actualités ===== */}
       <section id="actualites" className="news-section">
         <h3>Dernières actualités</h3>
