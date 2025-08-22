@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
 
-from auth import auth_bp
+from login import auth_bp
+
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ def create_app():
     # Single main DB:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:your_password@localhost:5432/ftn_db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+    db.init_app(app)
 
     # CORS (allow cookie-based sessions from React)
     client_origin = os.getenv("CLIENT_ORIGIN", "http://localhost:3000")
@@ -43,6 +44,7 @@ def create_app():
         return jsonify({"ok": True})
 
     return app
+
 
 # For `flask run` and `python app.py`
 app = create_app()

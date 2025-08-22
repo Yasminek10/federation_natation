@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 import bcrypt
-from db import fetch_one
+from db import db, User
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api")
 
@@ -21,7 +21,7 @@ def login():
     if not row:
         return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
 
-    user_id, user_email, password_hash, role = row["id"], row["email"], row["password"], row["role"]
+    user_id, user_email, password_hash, role = row["id"], row["email"], row["mdp_hash"], row["role"]
 
     # password_hash stored as bcrypt hash string in DB
     ok = bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
