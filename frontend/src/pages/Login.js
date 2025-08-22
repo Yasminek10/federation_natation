@@ -12,7 +12,7 @@ function Login() {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:5000/login", {
+      const response = await fetch("http://localhost:5000/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -24,7 +24,7 @@ function Login() {
         if (data.role === "admin") {
           navigate("/home");
         } else if (data.role === "coach") {
-          navigate("/coach");
+          navigate("/home");
         }
       } else {
         setError(data.message);
