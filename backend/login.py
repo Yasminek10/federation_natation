@@ -8,9 +8,9 @@ CORS(app)  # autorise React à appeler l’API Flask
 
 # Connexion à PostgreSQL
 conn = psycopg2.connect(
-    dbname="ftn_db",
+    dbname="NatationDB",
     user="postgres",
-    password="your_password",
+    password="yassmin",
     host="localhost",
     port="5432"
 )
