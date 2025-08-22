@@ -1,0 +1,27 @@
+# ---- Python (backend) ----
+backend/.venv/
+venv/
+.venv/
+ENV/
+env/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.mypy_cache/
+.pytype/
+.coverage
+htmlcov/
+
+
+# ---- IDE / OS ----
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ---- Secrets / local config (keep if you ever add them) ----
+*.env
+.env.*

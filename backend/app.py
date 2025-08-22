@@ -21,10 +21,10 @@ def create_app():
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # "None" if using HTTPS cross-site
     # In dev on http://localhost, keep SECURE False. In prod, set True.
     app.config["SESSION_COOKIE_SECURE"] = False
-
+    
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:your_password@localhost:5432/ftn_db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost:5432/NatationDB'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
