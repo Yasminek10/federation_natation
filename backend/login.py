@@ -1,38 +1,59 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import psycopg2
+from flask import Blueprint, request, jsonify, session
 import bcrypt
+from db import db, User   # ✅ import SQLAlchemy + User model
 
-app = Flask(__name__)
-CORS(app)  # autorise React à appeler l’API Flask
+auth_bp = Blueprint("auth", __name__, url_prefix="/api")
 
-# Connexion à PostgreSQL
-conn = psycopg2.connect(
-    dbname="NatationDB",
-    user="postgres",
-    password="yassmin",
-    host="localhost",
-    port="5432"
-)
 
-@app.route("/login", methods=["POST"])
+# POST /api/login
+@auth_bp.post("/login")
 def login():
-    data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
 
-    cur = conn.cursor()
-    cur.execute("SELECT id, email, password, role FROM users WHERE email=%s", (email,))
-    user = cur.fetchone()
+    if not email or not password:
+        return jsonify({"status": "error", "message": "Email et mot de passe requis"}), 400
 
-    if user:
-        user_id, user_email, user_password, user_role = user
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
 
-        if bcrypt.checkpw(password.encode("utf-8"), user_password.encode("utf-8")):
-            return jsonify({"status": "success", "role": user_role})
-    
-    return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
+    # mdp_hash should be a bcrypt string like "$2b$..."
+    hashed = user.mdp_hash
+    if not isinstance(hashed, (str, bytes)):
+        return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
+
+    # ensure both args are bytes for bcrypt
+    if isinstance(hashed, str):
+        hashed_bytes = hashed.encode("utf-8")
+    else:
+        hashed_bytes = hashed
+
+    try:
+        ok = bcrypt.checkpw(password.encode("utf-8"), hashed_bytes)
+    except ValueError:
+        # Invalid salt / not a bcrypt hash -> treat as wrong credentials (don’t 500)
+        return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
+
+    if not ok:
+        return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
+
+    session["user"] = {"id": user.user_id, "email": user.email, "role": user.role}
+    return jsonify({"status": "success", "role": user.role})
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+# POST /api/logout
+@auth_bp.post("/logout")
+def logout():
+    session.pop("user", None)
+    return jsonify({"status": "success"})
+
+
+# GET /api/me  -> check current session
+@auth_bp.get("/me")
+def me():
+    user = session.get("user")
+    if not user:
+        return jsonify({"authenticated": False}), 401
+    return jsonify({"authenticated": True, "user": user})
