@@ -1,5 +1,8 @@
-import re, sys
+import re
+import sys
 from pathlib import Path
+from typing import Optional
+
 from docx import Document
 
 # Imports app / db depuis backend/
@@ -53,12 +56,33 @@ def ensure_categorie(nom: str) -> Categorie:
         obj = Categorie(nom=nom); db.session.add(obj); db.session.flush()
     return obj
 
-def ensure_epreuve(distance: int, nage_token: str, genre: str, is_relay: bool) -> Epreuve:
+def ensure_epreuve(distance: int, nage_token: str, genre: str, is_relay: bool, legs_count: Optional[int]) -> Epreuve:
+    """
+    Règles :
+    - Si relais → distance = distance PAR RELAIS (ex. 50 pour 4x50) + legs_count (4,10…)
+    - Si individuel → legs_count doit être NULL
+    - Unicité logique alignée avec ta contrainte :
+        UNIQUE (nage, distance, genre, is_relay, legs_count)
+    """
     nage = normalize_nage_token(nage_token)
-    ep = Epreuve.query.filter_by(distance=distance, nage=nage, genre=genre, is_relay=is_relay).first()
+    genre = genre.capitalize()
+
+    q = Epreuve.query.filter_by(
+        distance=distance, nage=nage, genre=genre, is_relay=is_relay, legs_count=legs_count
+    )
+    ep = q.first()
     if not ep:
-        ep = Epreuve(distance=distance, nage=nage, genre=genre, is_relay=is_relay)
-        db.session.add(ep); db.session.flush()
+        ep = Epreuve(distance=distance, nage=nage, genre=genre, is_relay=is_relay, legs_count=legs_count)
+        db.session.add(ep)
+        db.session.flush()
+    else:
+        # sécurités de cohérence
+        if is_relay and ep.legs_count != legs_count:
+            ep.legs_count = legs_count
+            db.session.flush()
+        if not is_relay and ep.legs_count is not None:
+            ep.legs_count = None
+            db.session.flush()
     return ep
 
 def upsert_minima(epreuve_id: int, categorie_id: int, temp_min: str):
@@ -68,23 +92,24 @@ def upsert_minima(epreuve_id: int, categorie_id: int, temp_min: str):
     else:
         db.session.add(Minimas(epreuve_id=epreuve_id, categorie_id=categorie_id, temp_min=temp_min))
 
-# Variante underscore: autorise un suffixe après le genre (ex: _Classement)
+# ---- Parsers d’intitulé d’épreuve ----
+# Variante underscores (ex: 4_x_50_m_NAGE_LIBRE_Dames_Classement)
 EVENT_U = re.compile(
-    r"""^(?:(?P<relay>\d+)_x_)?      # 4_x_ (optionnel)
+    r"""^(?:(?P<relay>\d+)_x_)?      # 4_x_ ou 10_x_ (optionnel)
         (?P<dist>\d+)_m_
-        (?P<nage>[A-Z0-9_]+)_
+        (?P<nage>[A-Za-z0-9_]+)_
         (?P<genre>Dames|Messieurs|Mixte)
-        (?:_.*)?$                    # <- suffixe optionnel
+        (?:_.*)?$                    # suffixe optionnel
     """, re.IGNORECASE | re.VERBOSE
 )
 
-# Variante espaces: autorise du texte après le genre (ex: '... Mixte Classement')
+# Variante espaces (ex: 4 x 50 m Nage Libre Dames Classement)
 EVENT_S = re.compile(
     r"""^(?:(?P<relay>\d+)\s*[xX]\s*)? # 4 x (optionnel)
         (?P<dist>\d+)\s*m\s+
         (?P<nage>(?:NAGE\s*LIBRE|NL|DOS|BRASSE|BR|PAPILLON|PAP|4\s*NAGES))\s+
         (?P<genre>Dames|Messieurs|Mixte)
-        (?:\s+.*)?$                   # <- suffixe optionnel
+        (?:\s+.*)?$                   # suffixe optionnel
     """, re.IGNORECASE | re.VERBOSE
 )
 
@@ -95,11 +120,12 @@ def match_event(text: str):
     return EVENT_S.match(txt)                # variantes avec espaces
 
 # ---- import principal : tables d'abord (col0=épreuve, col1=temps) ----
+# ---- Lecture du .docx (tables 2 colonnes, puis fallback paragraphes) ----
 def parse_docx(path: Path):
     doc = Document(str(path))
     rows = []
 
-    # 1) Tables 2 colonnes
+    # 1) tables (format 2 colonnes : libellé épreuve | valeur minima)
     for tbl in doc.tables:
         for row in tbl.rows:
             cells = []
@@ -109,7 +135,7 @@ def parse_docx(path: Path):
             if len(cells) >= 2:
                 rows.append((cells[0].strip(), cells[1].strip()))
 
-    # 2) Fallback: paragraphes (épreuve sur une ligne, temps sur la suivante)
+    # 2) fallback : paragraphes successifs
     if not rows:
         lines = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
         i = 0
@@ -117,7 +143,6 @@ def parse_docx(path: Path):
             head = lines[i]
             m = match_event(head)
             if m:
-                # temps = le champ après le match sur la même ligne, sinon ligne suivante
                 remainder = head[m.end():].strip()
                 time_txt = remainder or (lines[i+1] if i+1 < len(lines) else "")
                 rows.append((head, time_txt))
@@ -127,12 +152,14 @@ def parse_docx(path: Path):
 
     return rows
 
+
+# ---- Import principal (par dossier) ----
 def load_all(folder: Path):
     total_ins = 0
 
-    # sets pour dédoublonner dans UNE même exécution
-    seen_epreuves = set()   # (distance, nage_norm, genre, is_relay)
-    seen_minimas  = set()   # (distance, nage_norm, genre, is_relay, categorie_nom)
+    # dédoublonnage en mémoire (inclut legs_count pour différencier 4x50 vs 10x50)
+    seen_epreuves = set()   # (distance_par_relais, nage_norm, genre, is_relay, legs_count)
+    seen_minimas  = set()   # (distance_par_relais, nage_norm, genre, is_relay, legs_count, categorie_nom)
 
     for fp in sorted(folder.glob("*.docx")):
         cat_nom = category_from_filename(fp.name)
@@ -141,51 +168,49 @@ def load_all(folder: Path):
 
         ins = 0
         for ev_text, time_text in rows:
-            if not ev_text or is_empty(time_text):  # ignore en-têtes/vides
+            if not ev_text:
                 continue
+            tnorm = norm_time(time_text)
+            if is_empty(tnorm):
+                continue  # pas de minima à enregistrer
 
             m = match_event(ev_text)
             if not m:
-                continue  # pas une épreuve lisible
+                continue  # intitulé non reconnu
 
-            gd     = m.groupdict()
-            relay  = gd.get("relay")
-            dist   = int(gd["dist"])
-            nage   = gd["nage"]
-            genre  = gd["genre"].capitalize()
-            is_rel = bool(relay)
-            total_dist = dist * int(relay) if relay else dist
-            nage_norm  = normalize_nage_token(nage)
+            gd      = m.groupdict()
+            relay   = gd.get("relay")
+            dist    = int(gd["dist"])                 # distance PAR RELAIS (ex: 50)
+            nage    = gd["nage"]
+            genre   = gd["genre"].capitalize()
+            is_rel  = relay is not None
+            legs    = int(relay) if relay else None   # 4, 10, … ou None si individuel
+            nage_n  = normalize_nage_token(nage)
 
-            # ---- dédoublonnage épreuve (clé unique logique) ----
-            ekey = (total_dist, nage_norm, genre, is_rel)
+            # upsert épreuve (distance par relais + legs_count)
+            ekey = (dist, nage_n, genre, is_rel, legs)
             if ekey not in seen_epreuves:
                 seen_epreuves.add(ekey)
-            # upsert DB (ne créera pas de doublon grâce à ensure_epreuve)
-            ep = ensure_epreuve(total_dist, nage, genre, is_rel)
+            ep = ensure_epreuve(dist, nage, genre, is_rel, legs)
 
-            # ---- temps ----
-            tnorm = norm_time(time_text)
-            if is_empty(tnorm):
-                continue
-
-            # ---- dédoublonnage minima par (épreuve, catégorie) ----
-            mkey = (total_dist, nage_norm, genre, is_rel, cat_nom)
+            # upsert minima (par épreuve & catégorie)
+            mkey = (dist, nage_n, genre, is_rel, legs, cat_nom)
             if mkey in seen_minimas:
-                # déjà inséré dans cette exécution -> skip
                 continue
             seen_minimas.add(mkey)
 
             upsert_minima(ep.epreuve_id, cat.categorie_id, tnorm)
-            ins += 1; total_ins += 1
+            ins += 1
+            total_ins += 1
 
-        print(f"[OK] {fp.name}: insérées:{ins} (catégorie={cat_nom})")
+        print(f"[OK] {fp.name}: insérés/mis à jour: {ins} (catégorie={cat_nom})")
 
     db.session.commit()
     return total_ins
 
 if __name__ == "__main__":
-    data_dir = Path(__file__).parent / "data" / "minimas"  # backend/data/minimas
+    # Dossier d’entrée par défaut : backend/data/minimas
+    data_dir = Path(__file__).parent / "data" / "minimas"
     if not data_dir.exists():
         print(f"Répertoire introuvable: {data_dir}")
         raise SystemExit(1)
