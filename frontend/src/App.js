@@ -2,11 +2,15 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import Minimas from "./pages/Minimas";
 import OCRUploader from "./components/OCRUploader";
+import ImportResults from "./pages/ImportResults";
+import EligibilityPage from "./pages/EligibilityPage";
+
 
 // Read user from localStorage
 const currentUser = JSON.parse(localStorage.getItem("user"));
@@ -17,6 +21,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/home" element={<Home user={currentUser} />} />
       <Route path="/login" element={<Login />} />
+
 
       <Route
         path="/admin-dashboard"
@@ -53,6 +58,12 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+=======
+      <Route path="/import" element={<ImportResults />} />
+      <Route path="/eligibilite" element={<EligibilityPage />} />
+
+      {/* add other pages later */}
+
     </Routes>
   );
 }

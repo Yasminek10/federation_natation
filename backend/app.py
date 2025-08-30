@@ -10,6 +10,9 @@ from login import auth_bp
 from ocr import ocr_bp
 from championnats import championnats_bp
 from epreuves import epreuves_bp
+from ingest import ingest_bp
+from login import auth_bp
+from affichage import swimmers_bp
 
 
 load_dotenv()
@@ -44,11 +47,15 @@ def create_app():
 
     # Blueprints (add more later, e.g., pages_bp)
     app.register_blueprint(auth_bp)
+
     app.register_blueprint(minimas_bp)  # ← register minimas blueprint
     app.register_blueprint(ocr_bp)
     app.register_blueprint(championnats_bp)
     app.register_blueprint(epreuves_bp)   
     
+
+    app.register_blueprint(ingest_bp)
+    app.register_blueprint(swimmers_bp)
 
     @app.get("/api/health")
     def health():
