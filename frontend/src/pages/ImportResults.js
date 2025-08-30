@@ -1,4 +1,19 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Accordion,
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Form,
+  InputGroup,
+  Spinner,
+  Table,
+} from "react-bootstrap";
+
+// Assure-toi d'importer le CSS Bootstrap une seule fois, par ex. dans src/index.js :
+// import 'bootstrap/dist/css/bootstrap.min.css';
 
 export default function ImportResults() {
   const [url, setUrl] = useState("");
@@ -9,17 +24,17 @@ export default function ImportResults() {
 
   // États éligibilité
   const [swimmers, setSwimmers] = useState([]);
-  const [conflicts, setConflicts] = useState([]);     // keys conflit de nationalités
-  const [approvals, setApprovals] = useState({});     // { swimmer_key: bool }
+  const [conflicts, setConflicts] = useState([]); // keys conflit de nationalités
+  const [approvals, setApprovals] = useState({}); // { swimmer_key: bool }
 
   // Afficher seulement les non-TUN à approuver
   const swimmersToVerify = useMemo(
-    () => (swimmers || []).filter(s => !!s.needs_approval),
+    () => (swimmers || []).filter((s) => !!s.needs_approval),
     [swimmers]
   );
 
   const doPreview = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     setMsg(null);
     setPreview(null);
     setSwimmers([]);
@@ -48,7 +63,6 @@ export default function ImportResults() {
               s.existing && typeof s.existing.eligible_points === "boolean"
                 ? s.existing.eligible_points
                 : undefined;
-            // si connu en base -> on respecte ; sinon (première insertion non-TUN) -> false par défaut
             init[s.key] = fromDb !== undefined ? fromDb : false;
           }
         });
@@ -79,17 +93,14 @@ export default function ImportResults() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ url, approvals }),   // (NEW) on envoie approvals
+        body: JSON.stringify({ url, approvals }), // (NEW) on envoie approvals
       });
       const data = await res.json();
       if (!res.ok) {
         setMsg({ type: "error", text: data.message || "Erreur d'import." });
       } else {
         const inserted = typeof data?.inserted === "number" ? data.inserted : "?";
-        setMsg({
-          type: "success",
-          text: `Import OK: ${inserted} lignes.`,
-        });
+        setMsg({ type: "success", text: `Import OK: ${inserted} lignes.` });
       }
     } catch (err) {
       setMsg({ type: "error", text: String(err) });
@@ -98,226 +109,276 @@ export default function ImportResults() {
     }
   };
 
-  // Helpers d’affichage
+  const isMulti = !!(preview && Array.isArray(preview.events));
+
+  // ---- UI Helpers ----
   const EventHeader = ({ ev }) => {
     if (!ev) return null;
     const dist = ev.distance_par_jambe ?? ev.distance ?? "";
     const main = ev.is_relay ? `${ev.nage} ${ev.legs_count}×${dist} m` : `${ev.nage} ${dist}${dist ? " m" : ""}`;
     return (
-      <div>
-        <b>Épreuve</b> {main} — {ev.genre}
-        {ev.is_relay ? " (Relais)" : ""}
+      <div className="text-muted"> <strong>Épreuve</strong> {main} — {ev.genre}{ev.is_relay ? " (Relais)" : ""} </div>
+    );
+  };
+
+  const CategoryHeader = ({ cec }) => {
+    if (!cec) return null;
+    return (
+      <div className="d-flex align-items-center gap-2 mb-2">
+        <div><strong>Catégorie:</strong></div>
+        <Badge bg="secondary">{cec.categorie}</Badge>
+        {cec.guessed_category ? <Badge bg="light" text="dark">auto</Badge> : null}
       </div>
     );
   };
 
-  const CECBlock = ({ cec, isRelay }) => {
-    if (!cec) return null;
+  const VerificationTable = () => {
+    if (swimmersToVerify.length === 0) return null;
     return (
-      <div style={{ marginTop: 18, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-        <div style={{ marginBottom: 8 }}>
-          <b>Catégorie:</b> {cec.categorie} {cec.guessed_category ? " (auto)" : ""}{" "}
-          {cec.cec_id ? ` (CEC ${cec.cec_id})` : " (CEC nouveau?)"}
-        </div>
-
-        {!isRelay && (
-          <>
-            {(!cec.header_mapping || Object.keys(cec.header_mapping).length === 0) && (
-              <div style={{ color: "crimson" }}>Entête non détectée (vérifie la colonne “Club”).</div>
-            )}
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
-              header_mapping: {JSON.stringify(cec.header_mapping || {})} | header_row_index: {cec.header_row_index ?? "-"}
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+      <Card className="mt-3">
+        <Card.Header as="h5">Éligibilité points — vérification nationalité</Card.Header>
+        <Card.Body>
+          {conflicts.length > 0 && (
+            <Alert variant="danger">
+              <Alert.Heading>Conflit de nationalité détecté</Alert.Heading>
+              <div>{conflicts.length} identité(s) ont des nationalités différentes. Corrige la source avant d’importer.</div>
+            </Alert>
+          )}
+          <div className="table-responsive">
+            <Table hover bordered className="align-middle mb-0">
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Nom</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Club</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Nation</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Année</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Temps</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Points</th>
-                  <th style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>Nouveaux ?</th>
+                  <th>Nageur</th>
+                  <th>Club</th>
+                  <th>Année</th>
+                  <th>Nationalité(s)</th>
+                  <th className="text-center">Éligible</th>
                 </tr>
               </thead>
               <tbody>
-                {(cec.details || []).map((d, j) => (
-                  <tr key={j}>
-                    <td>{d.fullname}</td>
-                    <td>{d.club || <span style={{ color: "crimson" }}>—</span>}</td>
-                    <td>{d.nation || "—"}</td>
-                    <td>{d.birth_year ?? "—"}</td>
-                    <td>{d.time || "—"}</td>
-                    <td>{d.points_raw || "0"}</td>
-                    <td>
-                      {d.error ? (
-                        <span style={{ color: "crimson" }}>{d.error}</span>
-                      ) : (
-                        <>
-                          {d.would_create_club ? "🆕 club " : ""}
-                          {d.would_create_swimmer ? "🆕 nageur" : !d.would_create_club ? "✔︎" : ""}
-                        </>
-                      )}
+                {swimmersToVerify.map((s) => (
+                  <tr key={s.key}>
+                    <td className="fw-medium">{s.fullname}</td>
+                    <td>{s.club || "—"}</td>
+                    <td>{s.birth_year ?? "—"}</td>
+                    <td>{(s.nations || []).join(", ") || "—"}</td>
+                    <td className="text-center">
+                      <Form.Check
+                        type="switch"
+                        id={`eligible-${s.key}`}
+                        checked={!!approvals[s.key]}
+                        onChange={(e) => setApprovals((a) => ({ ...a, [s.key]: e.target.checked }))}
+                        label=""
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </>
-        )}
+            </Table>
+          </div>
+        </Card.Body>
+      </Card>
+    );
+  };
 
-        {isRelay && (
-          <>
-            {(cec.details || []).map((t, k) => (
-              <div key={k} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px dashed #eee" }}>
-                <div>
-                  <b>Équipe</b> — Club: <b>{t.club || <span style={{ color: "crimson" }}>manquant</span>}</b> — Temps:{" "}
-                  {t.time || "—"} — Points: {t.points} {t.would_create_club ? <span>🆕 club</span> : <span>✔︎</span>}
-                  {t.error && <span style={{ color: "crimson" }}> — {t.error}</span>}
-                </div>
-                <div style={{ marginTop: 6 }}>
-                  Membres:
-                  <ul style={{ margin: "6px 0 0 18px" }}>
-                    {(t.members || []).map((m, z) => (
-                      <li key={z}>
-                        {m.fullname} — {m.birth_year ?? "—"} {m.would_create_swimmer ? " (🆕 nageur)" : " (✔︎)"}
-                        {m.nation ? ` — ${m.nation}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {t.passages && <div style={{ fontSize: 12, color: "#555" }}>Passages: {t.passages}</div>}
-              </div>
+  const NonRelayTable = ({ cec }) => {
+    if (!cec) return null;
+    return (
+      <div className="table-responsive mt-2">
+        <Table hover bordered size="sm" className="align-middle">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Club</th>
+              <th>Nation</th>
+              <th>Année</th>
+              <th>Temps</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(cec.details || []).map((d, j) => (
+              <tr key={j}>
+                <td className="fw-medium">{d.fullname}</td>
+                <td>{d.club || <span className="text-danger">—</span>}</td>
+                <td>{d.nation || "—"}</td>
+                <td>{d.birth_year ?? "—"}</td>
+                <td>{d.time || "—"}</td>
+                <td>{d.points_raw || "0"}</td>
+              </tr>
             ))}
-          </>
-        )}
+          </tbody>
+        </Table>
       </div>
     );
   };
 
-  const isMulti = !!(preview && Array.isArray(preview.events));
+  const RelayBlock = ({ cec }) => {
+    if (!cec) return null;
+    return (
+      <div className="mt-2 d-grid gap-3">
+        {(cec.details || []).map((t, k) => (
+          <Card key={k} className="border-0 shadow-sm">
+            <Card.Body>
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-1 small">
+                <div className="fw-semibold">Équipe</div>
+                <Badge bg="secondary">{t.club || <span className="text-danger">manquant</span>}</Badge>
+                <div>Temps: <span className="fw-semibold">{t.time || "—"}</span></div>
+                <div>Points: <span className="fw-semibold">{t.points}</span></div>
+                {t.error && <Badge bg="danger">{t.error}</Badge>}
+              </div>
+              <div className="mt-2 small">
+                <div className="fw-semibold mb-1">Membres</div>
+                <ul className="mb-0">
+                  {(t.members || []).map((m, z) => (
+                    <li key={z}>
+                      {m.fullname} — {m.birth_year ?? "—"}{m.nation ? ` — ${m.nation}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {t.passages && (
+                <div className="mt-2 text-muted small">Passages: {t.passages}</div>
+              )}
+            </Card.Body>
+          </Card>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div style={{ maxWidth: 1000, margin: "40px auto", padding: "0 16px" }}>
-      <h2>Importer des résultats (FTN) – Preview & Import</h2>
+    <div className="container my-4">
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <h2 className="h4 mb-0">Importer des résultats (FTN)</h2>
+      </div>
 
-      <form onSubmit={doPreview} style={{ display: "flex", gap: 12 }}>
-        <input
-          type="url"
-          required
-          placeholder="http://ftnatation.tn/…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          style={{ flex: 1, padding: 10 }}
-        />
-        <button disabled={loadingPreview} type="submit">
-          {loadingPreview ? "Prévisualisation…" : "Prévisualiser"}
-        </button>
-        <button
-          type="button"
-          disabled={loadingImport || !url || !preview || conflicts.length > 0}  // (NEW) besoin du preview
-          onClick={doImport}
-          style={{ opacity: loadingImport ? 0.7 : 1 }}
-        >
-          {loadingImport ? "Import…" : "Importer"}
-        </button>
-      </form>
-
-      {msg && (
-        <p style={{ marginTop: 16, color: msg.type === "error" ? "crimson" : "green" }}>
-          {msg.text}
-        </p>
-      )}
-
-      {preview && (
-        <div style={{ marginTop: 24 }}>
-          <h3>Aperçu</h3>
-          <div style={{ fontSize: 14, color: "#333" }}>
-            <div>
-              <b>Champ.</b> {preview.championnat?.nom} — {preview.championnat?.saison} —{" "}
-              {preview.championnat?.lieu} — {preview.championnat?.bassin}m
+      <Card>
+        <Card.Header as="h5">Prévisualisation & import</Card.Header>
+        <Card.Body>
+          <Form onSubmit={doPreview} className="d-flex flex-column flex-md-row gap-2">
+            <div className="flex-grow-1">
+              <Form.Label htmlFor="url">Adresse de la page résultats</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  id="url"
+                  type="url"
+                  required
+                  placeholder="https://ftnatation.tn/…"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </InputGroup>
             </div>
-            <div>
-              <b>Dates</b> {preview.championnat?.datedeb} → {preview.championnat?.datefin}
+            <div className="d-flex gap-2 align-items-end">
+              <Button type="submit" variant="primary" disabled={loadingPreview}>
+                {loadingPreview ? (<><Spinner animation="border" size="sm" className="me-2" /> Prévisualisation…</>) : "Prévisualiser"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loadingImport || !url || !preview || conflicts.length > 0}
+                onClick={doImport}
+              >
+                {loadingImport ? (<><Spinner animation="border" size="sm" className="me-2" /> Import…</>) : "Importer"}
+              </Button>
             </div>
-            {Array.isArray(preview.categories) && (
-              <div>
-                <b>Catégories</b> {preview.categories.join(", ")}
-              </div>
-            )}
-            {Array.isArray(preview.conflicts_cec_ids) && preview.conflicts_cec_ids.length > 0 && (
-              <div style={{ color: "crimson", marginTop: 6 }}>
-                ⚠️ Championnat déjà importé
-              </div>
-            )}
-          </div>
+          </Form>
 
-          {/* Panneau d’approbation — uniquement non-TUN */}
-          {swimmersToVerify.length > 0 && (
-            <div style={{ marginTop: 16, padding: 12, border: "1px solid #bbb", borderRadius: 8 }}>
-              <h4>Éligibilité points — vérification nationalité</h4>
-              {conflicts.length > 0 && (
-                <div style={{ color: "crimson", marginBottom: 8 }}>
-                  ⚠️ Conflit de nationalité détecté pour {conflicts.length} identité(s).
-                  Corrige la source avant d’importer.
-                </div>
+          {msg && (
+            <div className="mt-3">
+              {msg.type === "error" ? (
+                <Alert variant="danger">{msg.text}</Alert>
+              ) : (
+                <Alert variant="success">{msg.text}</Alert>
               )}
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left" }}>Nageur</th>
-                    <th style={{ textAlign: "left" }}>Club</th>
-                    <th style={{ textAlign: "left" }}>Année</th>
-                    <th style={{ textAlign: "left" }}>Nationalité(s)</th>
-                    <th style={{ textAlign: "left" }}>Éligible points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {swimmersToVerify.map((s) => (
-                    <tr key={s.key}>
-                      <td>{s.fullname}</td>
-                      <td>{s.club || "—"}</td>
-                      <td>{s.birth_year ?? "—"}</td>
-                      <td>{(s.nations || []).join(", ") || "—"}</td>
-                      <td>
-                        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!approvals[s.key]}
-                            onChange={(e) => setApprovals((a) => ({ ...a, [s.key]: e.target.checked }))}
-                          />
-                          autoriser
-                        </label>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           )}
 
-          {/* Multi-épreuves / fallback single */}
-          {isMulti ? (
-            <div style={{ marginTop: 12 }}>
-              {preview.events.map((evBlock, idx) => (
-                <div key={idx} style={{ marginTop: 18, padding: 12, border: "1px solid #bbb", borderRadius: 8 }}>
-                  <EventHeader ev={evBlock.epreuve} />
-                  {(evBlock.cecs || []).map((cec, i) => (
-                    <CECBlock key={i} cec={cec} isRelay={!!evBlock.epreuve?.is_relay} />
+          {preview && (
+            <div className="mt-4">
+              <Card className="mb-3">
+                <Card.Body className="small">
+                  <div className="d-flex flex-wrap gap-3 align-items-center">
+                    <div><strong>Champ.</strong> {preview.championnat?.nom} — {preview.championnat?.saison}</div>
+                    <div><strong>Lieu</strong> {preview.championnat?.lieu}</div>
+                    <Badge bg="light" text="dark">{preview.championnat?.bassin} m</Badge>
+                    <div className="ms-auto text-muted"><strong className="text-dark">Dates</strong> {preview.championnat?.datedeb} → {preview.championnat?.datefin}</div>
+                  </div>
+                  {Array.isArray(preview.categories) && (
+                    <div className="mt-2 d-flex flex-wrap gap-2">
+                      {(preview.categories || []).map((c) => (
+                        <Badge key={c} bg="secondary">{c}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {Array.isArray(preview.conflicts_cec_ids) && preview.conflicts_cec_ids.length > 0 && (
+                    <Alert variant="danger" className="mt-2 mb-0">Ce championnat semble déjà importé.</Alert>
+                  )}
+                </Card.Body>
+              </Card>
+
+              {/* Panneau d’approbation — uniquement non-TUN */}
+              <VerificationTable />
+
+              {/* Résultats */}
+              {isMulti ? (
+                <Accordion alwaysOpen className="mt-3">
+                  {(preview.events || []).map((evBlock, idx) => (
+                    <Accordion.Item eventKey={`ev-${idx}`} key={idx}>
+                      <Accordion.Header>
+                        <div className="d-flex flex-column">
+                          <div className="fw-semibold">{evBlock?.epreuve?.nage} • {evBlock?.epreuve?.genre} {evBlock?.epreuve?.is_relay ? "• Relais" : ""}</div>
+                          <EventHeader ev={evBlock.epreuve} />
+                        </div>
+                      </Accordion.Header>
+                      <Accordion.Body>
+                        <div className="d-grid gap-3">
+                          {(evBlock.cecs || []).map((cec, i) => (
+                            <Card key={i} className="border-0 shadow-sm">
+                              <Card.Body>
+                                <CategoryHeader cec={cec} />
+                                {evBlock.epreuve?.is_relay ? (
+                                  <RelayBlock cec={cec} />
+                                ) : (
+                                  <NonRelayTable cec={cec} />
+                                )}
+                              </Card.Body>
+                            </Card>
+                          ))}
+                        </div>
+                      </Accordion.Body>
+                    </Accordion.Item>
                   ))}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ marginTop: 12 }}>
-              {preview.epreuve && <EventHeader ev={preview.epreuve} />}
-              {(preview.cecs || []).map((c, i) => (
-                <CECBlock key={i} cec={c} isRelay={!!preview.epreuve?.is_relay} />
-              ))}
+                </Accordion>
+              ) : (
+                <Accordion className="mt-3">
+                  <Accordion.Item eventKey="single-ev">
+                    <Accordion.Header>
+                      <div className="d-flex flex-column">
+                        <div className="fw-semibold">{preview.epreuve?.nage} • {preview.epreuve?.genre} {preview.epreuve?.is_relay ? "• Relais" : ""}</div>
+                        <EventHeader ev={preview.epreuve} />
+                      </div>
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      <div className="d-grid gap-3">
+                        {(preview.cecs || []).map((c, i) => (
+                          <Card key={i} className="border-0 shadow-sm">
+                            <Card.Body>
+                              <CategoryHeader cec={c} />
+                              {preview.epreuve?.is_relay ? <RelayBlock cec={c} /> : <NonRelayTable cec={c} />}
+                            </Card.Body>
+                          </Card>
+                        ))}
+                      </div>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                </Accordion>
+              )}
             </div>
           )}
-        </div>
-      )}
+        </Card.Body>
+      </Card>
     </div>
   );
 }

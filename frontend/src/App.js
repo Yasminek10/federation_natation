@@ -14,6 +14,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/import" element={<ImportResults />} />
       <Route path="/eligibilite" element={<EligibilityPage />} />
+
       {/* add other pages later */}
     </Routes>
   );

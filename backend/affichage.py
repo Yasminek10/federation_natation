@@ -1,8 +1,14 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import func, or_, and_
-from db import db, Nageur, Club
+from sqlalchemy import asc, desc
+from db import (
+    db, Championnat, CEC, Categorie, Epreuve,
+    ResultatBase, ResultatIndividuel, ResultatRelais,
+    Nageur, Club, Equipe, EquipeMembre
+)
 
 swimmers_bp = Blueprint("swimmers", __name__, url_prefix="/api/swimmers")
+
 
 TUN_SET = {"TUN", "TUNISIE", "TN", "TUN."}
 def _norm(s: str | None) -> str:
@@ -10,12 +16,14 @@ def _norm(s: str | None) -> str:
 
 @swimmers_bp.get("/approvals")
 def list_approvals():
-    # params
     search     = (request.args.get("search") or "").strip()
     club_id    = request.args.get("club_id", type=int)
-    only_pend  = request.args.get("only_pending", default="1") in {"1","true","True"}
+    only_pend  = (request.args.get("only_pending") or "0") in {"1","true","True"}
     page       = max(1, request.args.get("page", type=int) or 1)
     page_size  = min(200, request.args.get("page_size", type=int) or 50)
+
+    year_min   = request.args.get("year_min", type=int)
+    year_max   = request.args.get("year_max", type=int)
 
     q = (
         db.session.query(
@@ -27,14 +35,14 @@ def list_approvals():
         .join(Club, Club.id_club == Nageur.id_club)
     )
 
-    # non-TUN ou nationalité manquante
+    # On liste les nageurs non-TUN (ou nationalité vide)
     non_tun_filter = or_(
         Nageur.nationalite.is_(None),
         ~func.upper(Nageur.nationalite).in_(list(TUN_SET))
     )
     q = q.filter(non_tun_filter)
 
-    # only_pending = afficher ceux qui sont actuellement non autorisés
+    # Optionnel: ne montrer que ceux non autorisés actuellement
     if only_pend:
         q = q.filter(or_(Nageur.eligible_points.is_(None), Nageur.eligible_points.is_(False)))
 
@@ -44,6 +52,12 @@ def list_approvals():
     if search:
         s = f"%{search.upper()}%"
         q = q.filter(or_(func.upper(Nageur.nom).like(s), func.upper(Nageur.prenom).like(s)))
+
+    if year_min is not None:
+        q = q.filter(Nageur.birth_year.isnot(None)).filter(Nageur.birth_year >= year_min)
+    if year_max is not None:
+        q = q.filter(Nageur.birth_year.isnot(None)).filter(Nageur.birth_year <= year_max)
+
 
     total = q.count()
     rows  = (q.order_by(Club.nom.asc(), Nageur.nom.asc(), Nageur.prenom.asc())
@@ -56,7 +70,7 @@ def list_approvals():
         "birth_year": r.birth_year,
         "club_id": r.id_club,
         "club": r.club,
-        "nationalite": r.nationalite,
+        "nationalite": r.nationalite,   # affichée à titre informatif seulement
         "eligible_points": bool(r.eligible_points) if r.eligible_points is not None else False,
     } for r in rows]
 
@@ -71,14 +85,6 @@ def update_swimmer(nageur_id: int):
 
     if "eligible_points" in payload:
         n.eligible_points = bool(payload["eligible_points"])
-
-    if "nationalite" in payload:
-        nat = (payload["nationalite"] or "").strip() or None
-        n.nationalite = nat
-
-        # Optionnel: si on met TUN, auto-autoriser
-        if nat and _norm(nat) in TUN_SET:
-            n.eligible_points = True
 
     db.session.commit()
     return jsonify({"status":"ok"})
@@ -106,3 +112,5 @@ def bulk_update():
 
     db.session.commit()
     return jsonify({"status":"ok","updated":count})
+
+
