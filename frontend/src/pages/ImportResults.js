@@ -247,7 +247,7 @@ export default function ImportResults() {
             )}
             {Array.isArray(preview.conflicts_cec_ids) && preview.conflicts_cec_ids.length > 0 && (
               <div style={{ color: "crimson", marginTop: 6 }}>
-                ⚠️ CEC déjà importés (ids): {preview.conflicts_cec_ids.join(", ")}
+                ⚠️ Championnat déjà importé
               </div>
             )}
           </div>

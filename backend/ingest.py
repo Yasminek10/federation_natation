@@ -625,7 +625,7 @@ def ingest_url():
         if db.session.query(ResultatBase.resultat_id).filter_by(cec_id=it["cec_id"]).first():
             already.append(it["cec_id"])
     if already:
-        return jsonify({"status": "error", "message": "CEC déjà importé", "cec_ids": sorted(set(already))}), 409
+        return jsonify({"status": "error", "message": "Championnat déjà importé", "cec_ids": sorted(set(already))}), 409
 
     # 5) Insertion
     inserted = 0
