@@ -32,6 +32,7 @@ def category_from_filename(name: str) -> str:
 def norm_time(s: str) -> str:
     if s is None: return ""
     s = s.strip().replace("\u00A0", "")
+    
     s = re.sub(r"\s*:\s*", ":", s)  # "2 :39.84" -> "2:39.84"
     s = (s.replace("：", ":")
          .replace(" ;", ":").replace(";", ":")

@@ -42,11 +42,13 @@ class Epreuve(db.Model):
     distance = db.Column(db.Integer, nullable=False)
     genre = db.Column(db.String(16), nullable=False)   # 'Dames' | 'Messieurs' | 'Mixte'
     is_relay = db.Column(db.Boolean, nullable=False, server_default="false")
+    legs_count = db.Column(db.Integer, nullable=True)  # Nombre de nageurs pour le relais, ou null si non-relais
 
     __table_args__ = (
         CheckConstraint("genre in ('Dames','Messieurs','Mixte')", name="ck_epreuve_genre"),
         UniqueConstraint("nage", "distance", "genre", "is_relay", name="uq_epreuve"),
     )
+
 
 
 class Championnat(db.Model):

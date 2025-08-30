@@ -5,14 +5,20 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
-
+from minimas import minimas_bp  
 from login import auth_bp
+from ocr import ocr_bp
+from championnats import championnats_bp
+from epreuves import epreuves_bp
 
 
 load_dotenv()
 
 def create_app():
     app = Flask(__name__)
+    app.secret_key = "18163b14564fa75026205a9471dc10713226087a170655109c0af14671597160"
+    # Allow frontend (React) to send cookies
+    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
     # Core config
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
@@ -24,7 +30,7 @@ def create_app():
     
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost:5432/NatationDB'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@localhost:5432/NatationDB'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
@@ -38,14 +44,16 @@ def create_app():
 
     # Blueprints (add more later, e.g., pages_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(minimas_bp)  # ← register minimas blueprint
+    app.register_blueprint(ocr_bp)
+    app.register_blueprint(championnats_bp)
+    app.register_blueprint(epreuves_bp)   
+    
 
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True})
-
     return app
-
-
 # For `flask run` and `python app.py`
 app = create_app()
 

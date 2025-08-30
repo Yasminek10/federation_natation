@@ -1,4 +1,4 @@
-import React ,{ useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/login.css";
 import logo from "../assets/logo-ftn.png"; // place your logo inside src/assets/
@@ -21,6 +21,7 @@ function Login() {
       const data = await response.json();
 
       if (data.status === "success") {
+        localStorage.setItem("user", JSON.stringify(data));
         if (data.role === "admin") {
           navigate("/home");
         } else if (data.role === "coach") {
@@ -52,7 +53,7 @@ function Login() {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">Adresse email</label>
-             <input
+            <input
               type="email"
               id="email"
               value={email}
@@ -63,7 +64,7 @@ function Login() {
 
           <div className="form-group">
             <label htmlFor="password">Mot de passe</label>
-           <input
+            <input
               type="password"
               id="password"
               value={password}
@@ -71,8 +72,10 @@ function Login() {
               required
             />
           </div>
-{error && <p className="error">{error}</p>}
-          <button type="submit" className="btn-login">Se connecter</button>
+          {error && <p className="error">{error}</p>}
+          <button type="submit" className="btn-login">
+            Se connecter
+          </button>
         </form>
       </div>
     </div>
