@@ -2,7 +2,7 @@
 import re
 from datetime import datetime
 from urllib.parse import urlparse
-
+from sqlalchemy import func
 import requests
 from bs4 import BeautifulSoup
 from flask import Blueprint, request, jsonify
@@ -137,28 +137,34 @@ def ensure_nageur(fullname: str, year_txt: str | None, club: Club, nation: str |
         raise ValueError("club_obligatoire")
 
     full = clean_text(fullname)
-    parts = full.split()
     nom, prenom = _split_name(fullname)
+    nom = clean_text(nom)
+    prenom = clean_text(prenom)
 
     by = int(year_txt) if (year_txt and year_txt.isdigit()) else None
 
-    q = Nageur.query.filter_by(nom=nom, prenom=prenom, id_club=club.id_club)
+    #lookup insensible à la casse pour respecter la contrainte upper(...)
+    q = Nageur.query.filter(
+        Nageur.id_club == club.id_club,
+        func.upper(Nageur.nom) == nom.upper(),
+        func.upper(Nageur.prenom) == prenom.upper(),
+    )
     q = q.filter(Nageur.birth_year == by) if by is not None else q.filter(Nageur.birth_year.is_(None))
     n = q.first()
     if n:
-        # compléter nationalité si vide
         nat = clean_text(nation) or None
         if not n.nationalite and nat:
             n.nationalite = nat
-        # n'écraser eligible_points que si explicitement fourni
         if eligible_points is not None and n.eligible_points != eligible_points:
             n.eligible_points = eligible_points
         return n
 
     n = Nageur(
-        nom=nom, prenom=prenom, birth_year=by, id_club=club.id_club,
+        nom=nom,
+        prenom=prenom,
+        birth_year=by,
+        id_club=club.id_club,
         nationalite=(clean_text(nation) or None),
-        # par défaut pour une création
         eligible_points=(
             eligible_points if eligible_points is not None
             else (True if is_tunisian(nation) else False)
@@ -796,12 +802,18 @@ def _split_name(fullname: str):
     return " ".join(parts[:-1]), parts[-1]
 
 def _find_nageur(fullname: str, year_txt: str | None, club: Club | None):
-    """Recherche un nageur selon le nouveau schéma: (nom, prenom, id_club, birth_year)."""
     if club is None:
         return None
     nom, prenom = _split_name(fullname)
+    nom = clean_text(nom)
+    prenom = clean_text(prenom)
     by = int(year_txt) if (year_txt and year_txt.isdigit()) else None
-    q = Nageur.query.filter_by(nom=nom, prenom=prenom, id_club=club.id_club)
+
+    q = Nageur.query.filter(
+        Nageur.id_club == club.id_club,
+        func.upper(Nageur.nom) == nom.upper(),
+        func.upper(Nageur.prenom) == prenom.upper(),
+    )
     q = q.filter(Nageur.birth_year == by) if by is not None else q.filter(Nageur.birth_year.is_(None))
     return q.first()
 

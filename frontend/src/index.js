@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/base.css";
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './styles/adminDashboard.css';                     // puis ton thème global
+
 
 
 const root = createRoot(document.getElementById("root"));

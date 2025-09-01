@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
 import EditMinimaModal from "../components/EditMinimaModal";
 import { Modal, Button, Alert } from "react-bootstrap";
 
@@ -124,9 +123,7 @@ export default function Minimas() {
 
   return (
     <div>
-      <Navbar user={user} />
-
-      <div className="container p-4" style={{ marginTop: "100px" }}>
+      <div className="container p-4" style={{ marginTop: "10px" }}>
         {/* --- Barre de filtres --- */}
         <div className="d-flex gap-3 mb-4 flex-wrap">
           <select

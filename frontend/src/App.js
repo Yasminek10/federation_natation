@@ -4,13 +4,17 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import AppLayout from "./layouts/AppLayout";
+
 import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import Minimas from "./pages/Minimas";
 import OCRUploader from "./components/OCRUploader";
 import ImportResults from "./pages/ImportResults";
 import EligibilityPage from "./pages/EligibilityPage";
-
+import MaxPlacesPage from "./pages/MaxPlaces";
+import AccountPage from "./pages/AccountPage";
+import CreateAccountPage from "./pages/CreateAccountPage";
 
 // Read user from localStorage
 const currentUser = JSON.parse(localStorage.getItem("user"));
@@ -41,29 +45,77 @@ export default function App() {
         }
       />
 
-      <Route
-        path="/admin/minimas"
-        element={
-          <ProtectedRoute allowedRoles={["admin"]}>
-            <Minimas user={currentUser} />
-          </ProtectedRoute>
-        }
-      />
+      {/* Layout avec navbar toujours visible */}
+      <Route element={<AppLayout />}>
+        {/* Scraping / Import résultats (admin + coach) */}
+        <Route
+          path="/import"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <ImportResults />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/coach/ocr-uploader"
-        element={
-          <ProtectedRoute allowedRoles={["coach"]}>
-            <OCRUploader user={currentUser} />
-          </ProtectedRoute>
-        }
-      />
-=======
-      <Route path="/import" element={<ImportResults />} />
-      <Route path="/eligibilite" element={<EligibilityPage />} />
+      {/* OCR uploader (admin + coach) */}
+        <Route
+          path="/ocr"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <OCRUploader user={currentUser} />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* add other pages later */}
+        {/* Règles (lecture seule pour coach, modif pour admin) */}
+        <Route
+          path="/regles/minimas"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <Minimas user={currentUser} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/regles/eligibilite"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <EligibilityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/regles/max-places"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <MaxPlacesPage />
+            </ProtectedRoute>
+          }
+        />
 
+        {/* Admin only */}
+        <Route
+          path="/admin/users/create"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <CreateAccountPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Mon compte (admin + coach) */}
+        <Route
+          path="/account"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "coach"]}>
+              <AccountPage />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/import" replace />} />
     </Routes>
   );
 }
