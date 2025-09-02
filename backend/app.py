@@ -14,6 +14,7 @@ from ingest import ingest_bp
 from login import auth_bp
 from eligibilite import swimmers_bp
 from maxplaces import maxplaces_bp
+from account import account_bp
 
 
 load_dotenv()
@@ -21,8 +22,7 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
     app.secret_key = "18163b14564fa75026205a9471dc10713226087a170655109c0af14671597160"
-    # Allow frontend (React) to send cookies
-    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+    
 
     # Core config
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
@@ -46,6 +46,12 @@ def create_app():
         resources={r"/api/*": {"origins": [client_origin]}},
     )
 
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",  # OK en dev http://localhost:3000 -> http://localhost:5000
+        SESSION_COOKIE_SECURE=False,     # en dev (HTTP). En prod HTTPS -> True et SAMESITE="None"
+    )
+
     # Blueprints (add more later, e.g., pages_bp)
     app.register_blueprint(auth_bp)
 
@@ -58,6 +64,7 @@ def create_app():
     app.register_blueprint(ingest_bp)
     app.register_blueprint(swimmers_bp)
     app.register_blueprint(maxplaces_bp)
+    app.register_blueprint(account_bp)
 
     @app.get("/api/health")
     def health():

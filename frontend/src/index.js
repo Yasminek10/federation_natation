@@ -7,10 +7,10 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/adminDashboard.css';                     // puis ton thème global
 
 
-
-const root = createRoot(document.getElementById("root"));
-root.render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
+createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
 );
