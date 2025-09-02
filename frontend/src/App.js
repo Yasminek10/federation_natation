@@ -18,7 +18,9 @@ import OCRUploader from "./components/OCRUploader";
 import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import CreateAccountPage from "./pages/CreateAccountPage";
+import AnalysePage from "./pages/AnalysePage";
 const currentUser = JSON.parse(localStorage.getItem("user"));
+
 export default function App() {
   return (
     <Routes>
@@ -128,6 +130,9 @@ export default function App() {
       {/* racine + fallback */}
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<div className="p-4">Page introuvable</div>} />
+      <Route path="/import" element={<ImportResults />} />
+      <Route path="/analyse" element={<AnalysePage />} />
+      {/* add other pages later */}
     </Routes>
   );
 }

@@ -277,11 +277,11 @@ class ResultatRelais(db.Model):
 
 class User(db.Model):
     __tablename__ = "user"
-    user_id  = db.Column(db.BigInteger, primary_key=True)
-    nom      = db.Column(db.String(120), nullable=False)
-    prenom   = db.Column(db.String(120), nullable=False)
-    email    = db.Column(db.String(255), nullable=False, unique=True)
-    mdp_hash = db.Column(db.String(255), nullable=False)
-    role     = db.Column(db.String(16), nullable=False)  # 'admin' | 'coach'
 
+    user_id = db.Column(db.BigInteger, primary_key=True,autoincrement=True)
+    nom = db.Column(db.String(120), nullable=False)
+    prenom = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(255), nullable=False, unique=True)
+    mdp_hash = db.Column(db.String(255), nullable=False)  # bcrypt hash
+    role = db.Column(db.String(16), nullable=False)       # 'admin' | 'coach'
     __table_args__ = (CheckConstraint("role in ('admin','coach')", name="ck_user_role"),)

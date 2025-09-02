@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
 from minimas import minimas_bp  
-from login import auth_bp
 from ocr import ocr_bp
 from championnats import championnats_bp
 from epreuves import epreuves_bp
@@ -55,6 +54,7 @@ def create_app():
 
     # Blueprints (add more later, e.g., pages_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(results_bp)
 
     app.register_blueprint(minimas_bp)  # ← register minimas blueprint
     app.register_blueprint(ocr_bp)
