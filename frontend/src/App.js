@@ -1,18 +1,26 @@
+// src/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AdminDashboard from "./pages/AdminDashboard";
-import CoachDashboard from "./pages/CoachDashboard";
-import Minimas from "./pages/Minimas";
-import OCRUploader from "./components/OCRUploader";
-import ImportResults from "./pages/ImportResults";
-import EligibilityPage from "./pages/EligibilityPage";
 import ClubsList from "./components/Clubs";
 import SwimmersList from "./components/SwimmersList";
 // Read user from localStorage
 const currentUser = JSON.parse(localStorage.getItem("user"));
+
+import { RequireAuth, GuestOnly, RequireRole } from "./components/guards";
+import AppLayout from "./layouts/AppLayout";
+
+import Login from "./pages/Login";
+import Home from "./pages/Home";
+import AccountPage from "./pages/AccountPage";
+import Minimas from "./pages/Minimas";
+import MaxPlacesPage from "./pages/MaxPlaces";
+import EligibilityPage from "./pages/EligibilityPage";
+import ImportResults from "./pages/ImportResults";
+import OCRUploader from "./components/OCRUploader";
+import AdminDashboard from "./pages/AdminDashboard";
+import CoachDashboard from "./pages/CoachDashboard";
+import CreateAccountPage from "./pages/CreateAccountPage";
 
 export default function App() {
   return (
@@ -20,36 +28,106 @@ export default function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/home" element={<Home user={currentUser} />} />
       <Route path="/login" element={<Login />} />
+
+      {/* /login accessible seulement si NON connecté */}
+      <Route
+        path="/login"
+        element={
+          <GuestOnly>
+            <Login />
+          </GuestOnly>
+        }
+      />
+
+      {/* ===== Routes PROTÉGÉES SANS NAVBAR ===== */}
+      <Route
+        path="/home"
+        element={
+          <RequireAuth>
+            <Home />
+          </RequireAuth>
+        }
+      />
+
       <Route
         path="/admin-dashboard"
         element={
-          <ProtectedRoute allowedRoles={["admin"]}>
-            <AdminDashboard user={currentUser} />
-          </ProtectedRoute>
+          <RequireRole roles={["admin"]}>
+            <AdminDashboard />
+          </RequireRole>
         }
       />
       <Route
         path="/coach-dashboard"
         element={
-          <ProtectedRoute allowedRoles={["coach"]}>
-            <CoachDashboard user={currentUser} />
-          </ProtectedRoute>
+          <RequireRole roles={["coach"]}>
+            <CoachDashboard />
+          </RequireRole>
         }
       />
-      <Route path="/admin/minimas" element={<Minimas user={currentUser} />} />
+
+      {/* ===== Routes PROTÉGÉES AVEC NAVBAR (via AppLayout) ===== */}
       <Route
-        path="/coach/ocr-uploader"
         element={
-          <ProtectedRoute allowedRoles={["coach"]}>
-            <OCRUploader user={currentUser} />
-          </ProtectedRoute>
+          <RequireAuth>
+            <AppLayout />
+          </RequireAuth>
         }
-      />
-      <Route path="/clubs" element={<ClubsList user={currentUser} />} />
-      <Route path="/clubs/:clubId/nageurs" element={<SwimmersList user={currentUser} />} />
-      <Route path="/import" element={<ImportResults />} />
-      <Route path="/eligibilite" element={<EligibilityPage />} />
-      {/* add other pages later */}
+      >
+        <Route
+          path="/import"
+          element={
+            <RequireRole roles={["admin", "coach"]}>
+              <ImportResults />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/ocr"
+          element={
+            <RequireRole roles={["admin", "coach"]}>
+              <OCRUploader />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/regles/minimas"
+          element={
+            <RequireRole roles={["admin", "coach"]}>
+              <Minimas />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/regles/eligibilite"
+          element={
+            <RequireRole roles={["admin", "coach"]}>
+              <EligibilityPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/regles/max-places"
+          element={
+            <RequireRole roles={["admin", "coach"]}>
+              <MaxPlacesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/users/create"
+          element={
+            <RequireRole roles={["admin"]}>
+              <CreateAccountPage />
+            </RequireRole>
+          }
+        />
+        <Route path="/account" element={<AccountPage />} />
+      </Route>
+
+      {/* racine + fallback */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<div className="p-4">Page introuvable</div>} />
     </Routes>
   );
 }

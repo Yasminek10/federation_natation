@@ -1,74 +1,122 @@
+/* === NAVBAR plus grande === */
 .navbar-fixed {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   z-index: 1000;
   backdrop-filter: blur(12px);
-  background-color: rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding-block: 16px;
   transition: all 0.3s ease;
 }
 
-.logo {
-  height: 50px;
+/* ===== Brand soigné : logo en médaillon + wordmark en 2 lignes ===== */
+.brand { user-select: none; }
+
+.brand-emblem {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  display: grid; place-items: center;
+  border: 2px solid #e6f0ff;                 /* liseré clair */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08);  /* ombre douce */
 }
 
-.nav-links {
-  gap: 20px;
+/* Le logo à l’intérieur du médaillon */
+.brand-emblem .brand-logo {
+  height: 38px; width: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.04));
 }
 
-.nav-item {
+/* === Unifier la couleur du wordmark FTN === */
+:root {
+  --brand-wordmark: #0b5ed7; /* tu peux aussi mettre #0a58ca */
+}
+.brand-text { color: var(--brand-wordmark); }
+
+/* + léger agrandissement (discret) */
+.brand-line-1,
+.brand-line-2 {
+  color: inherit;
+  font-size: clamp(1.02rem, 1.15vw + 0.62rem, 1.28rem);
+}
+
+/* Responsive : un chouïa plus grand qu'avant aussi */
+@media (max-width: 576px) {
+  .brand-emblem { width: 48px; height: 48px; }
+  .brand-emblem .brand-logo { height: 32px; width: 32px; }
+  .brand-line-1 { font-size: 0.78rem; letter-spacing: .11em; }
+  .brand-line-2 { font-size: 1.12rem; }
+}
+
+/* === Tes styles “chips” inchangés (tu peux garder ce que tu as déjà) === */
+.nav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #cfe8ff;
+  border-radius: 12px;
+  background: #ffffff;
   color: #0f172a;
-  font-weight: bold;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.05);
+  transition: all .15s ease;
+  font-weight: 500;
   text-decoration: none;
 }
+.nav-chip:hover { border-color:#93c5fd; background:#f0f9ff; transform: translateY(-1px); }
+.nav-chip-active { border-color:#3b82f6; background:#e0f2fe; color:#0a58ca; font-weight:600; }
 
-.nav-item:hover {
-  color: #0ea5e9;
+/* Fix couleur Bootstrap sur dropdown chip */
+.dropdown .dropdown-toggle.nav-chip,
+.dropdown.show .dropdown-toggle.nav-chip,
+.dropdown-toggle.nav-chip:focus,
+.dropdown-toggle.nav-chip:active {
+  color:#0f172a !important;
+  background:#fff !important;
+  border-color:#cfe8ff !important;
+  box-shadow:none !important;
+}
+.dropdown.show .dropdown-toggle.nav-chip,
+.dropdown-toggle.nav-chip:hover {
+  background:#f0f9ff !important;
+  border-color:#93c5fd !important;
+}
+.user-toggle { border-radius:12px; padding:6px 10px; }
+
+/* Drawer / mobile (tu peux garder tes règles existantes) */
+.swim-drawer .drawer-header {
+  background: linear-gradient(90deg, #0077b6, #00b4d8);
+  color: white;
+}
+.drawer-links { display:flex; flex-direction:column; padding:.5rem; }
+.drawer-item {
+  display:flex; align-items:center;
+  padding:10px 14px; margin:4px 8px; border-radius:8px;
+  font-weight:500; color:#333; text-decoration:none;
+  transition: all .2s ease-in-out;
+}
+.drawer-item:hover { background:#e0f7fa; color:#0077b6; transform: translateX(4px); }
+.drawer-item.drawer-chip, .drawer-profile.drawer-chip {
+  border:1.5px solid #dbeafe; border-radius:12px; margin:6px 8px; background:#fff;
+}
+.clickable { cursor:pointer; }
+.swim-drawer .offcanvas-body { display:flex; flex-direction:column; }
+.drawer-logout { padding-bottom:24px; }
+.profile-avatar {
+  width:40px; height:40px; background:#00b4d8; color:#fff;
+  font-weight:700; font-size:1rem; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
 }
 
-.user-section span {
-  white-space: nowrap;
-}
-
-/* Mobile responsive */
-.nav-links {
-  flex-direction: row;
-}
-
-@media (max-width: 992px) {
-  .nav-links {
-    position: fixed;
-    top: 80px;
-    left: 0;
-    right: 0;
-    background: rgba(255, 255, 255, 0.9);
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    padding: 15px 0;
-    display: none;
-  }
-
-  .nav-links.open {
-    display: flex;
-  }
-
-  .user-section {
-    flex-direction: column;
-    gap: 10px;
-  }
-}
-
-/* --- Thème natation --- */
+/* --- Thème natation (tables) - si tu les utilises ailleurs --- */
 .swim-table {
   border-radius: 12px;
   overflow: hidden;
   background: #f0f9ff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
-
 .swim-table thead {
   background: linear-gradient(90deg, #0077b6, #00b4d8);
   color: white;
@@ -76,16 +124,11 @@
   font-weight: bold;
   letter-spacing: 1px;
 }
-
-.swim-table tbody tr {
-  transition: all 0.2s ease-in-out;
-}
-
+.swim-table tbody tr { transition: all 0.2s ease-in-out; }
 .swim-table tbody tr:hover {
   background: #caf0f8 !important;
   transform: scale(1.01);
 }
-
 .swim-table td {
   vertical-align: middle;
   font-size: 0.95rem;
@@ -100,119 +143,7 @@
   border-radius: 6px;
   transition: 0.3s;
 }
-
 .edit-btn:hover {
   background: linear-gradient(90deg, #0077b6, #0096c7);
   transform: scale(1.05);
-}
-
-/* Drawer Header (blue gradient) */
-.swim-drawer .drawer-header {
-  background: linear-gradient(90deg, #0077b6, #00b4d8);
-  color: white;
-}
-
-/* Menu links */
-.drawer-links {
-  display: flex;
-  flex-direction: column;
-  padding: 0.5rem;
-}
-
-.drawer-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  margin: 4px 8px;
-  border-radius: 8px;
-  font-weight: 500;
-  color: #333;
-  text-decoration: none;
-  transition: all 0.2s ease-in-out;
-}
-
-.drawer-item:hover {
-  background: #e0f7fa;
-  color: #0077b6;
-  transform: translateX(4px);
-}
-
-/* Profile avatar */
-.profile-avatar {
-  width: 40px;
-  height: 40px;
-  background: #00b4d8;
-  color: white;
-  font-weight: bold;
-  font-size: 1rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Tableaux style natation */
-.swim-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: rgba(173, 216, 230, 0.2);
-  /* bleu clair transparent */
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.swim-table th, .swim-table td {
-  padding: 12px 15px;
-  text-align: center;
-}
-
-.swim-table thead {
-  background: linear-gradient(to right, #0ea5e9, #3b82f6);
-  /* bleu dégradé */
-  color: white;
-  font-weight: bold;
-}
-
-.swim-table tbody tr:nth-child(even) {
-  background: rgba(173, 216, 230, 0.1);
-  /* rayures légères */
-}
-
-.swim-table tbody tr:hover {
-  background: rgba(14, 165, 233, 0.2);
-  transform: scale(1.02);
-  transition: all 0.2s ease-in-out;
-}
-
-/* Boutons */
-.btn-primary {
-  background: linear-gradient(to right, #0ea5e9, #3b82f6);
-  border: none;
-  border-radius: 50px;
-  padding: 6px 16px;
-  transition: all 0.2s ease;
-}
-
-.btn-primary:hover {
-  background: linear-gradient(to right, #3b82f6, #0ea5e9);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.accordion-button {
-  background: rgba(173, 216, 230, 0.2);
-  color: #0f172a;
-  font-weight: bold;
-  border-radius: 8px;
-  margin-bottom: 5px;
-}
-
-.accordion-button:not(.collapsed) {
-  background: linear-gradient(to right, #0ea5e9, #3b82f6);
-  color: white;
-}
-
-.accordion-body {
-  background: rgba(173, 216, 230, 0.05);
 }

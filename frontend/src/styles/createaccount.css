@@ -1,0 +1,108 @@
+/* Page wrapper */
+.create-account-page {
+  padding-block: 24px;
+  margin-top: 10px;
+}
+
+/* Card principale */
+.create-card {
+  max-width: 920px;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 85, 145, 0.12);
+  background: #fff;
+}
+
+/* En-tête dégradé */
+.create-card-header {
+  background: linear-gradient(90deg, #0077b6, #00b4d8);
+  border-bottom: none;
+  padding: 18px 24px;
+}
+
+/* Icône dans l'en-tête */
+.header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 1.1rem;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+/* Badge rôle avec petit effet pulsé */
+.role-badge {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .12);
+}
+.role-badge.pulse {
+  position: relative;
+  overflow: visible;
+}
+.role-badge.pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0 rgba(255,255,255,0.4);
+  animation: pulseGlow 1.8s ease-out infinite;
+}
+@keyframes pulseGlow {
+  0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.45); }
+  70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+
+/* InputGroup icône */
+.input-ico {
+  background: #eef7ff;
+  color: #0077b6;
+  border-color: #d7ecff;
+}
+.input-ico + .form-control {
+  border-left: 0;
+}
+
+/* Select lecture seule (désactivé) re-stylé */
+.readonly-select:disabled {
+  color: #0f172a;
+  background-color: #f8fbff !important;
+  border-color: #d7ecff !important;
+  opacity: 1; /* ne pas griser */
+  cursor: not-allowed;
+}
+
+/* Bouton CTA dégradé */
+.cta-gradient {
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #00b4d8, #48cae4);
+  box-shadow: 0 8px 18px rgba(0, 143, 204, 0.25);
+  transition: transform .15s ease, filter .2s ease;
+}
+.cta-gradient:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+  background: linear-gradient(90deg, #0077b6, #00b4d8);
+}
+
+/* Petites retouches Bootstrap par cohérence thème */
+.form-control:focus, .form-select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, .15);
+}
+
+.progress { border-radius: 999px; overflow: hidden; }
+.progress .progress-bar { transition: width .2s ease; }
+
+

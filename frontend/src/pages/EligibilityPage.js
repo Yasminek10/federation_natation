@@ -44,6 +44,8 @@ const PAGE_SIZE = 50;
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function EligibilityPage() {
+  const user = JSON.parse(localStorage.getItem("user"));
+  const isAdmin = user?.role === "admin";
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -265,14 +267,14 @@ export default function EligibilityPage() {
           <ButtonGroup>
             <Button
               variant="outline-primary"
-              disabled={selectedCount === 0}
+              disabled={!isAdmin || selected.size === 0}
               onClick={() => bulkUpdate(true)}
             >
               Autoriser (sélection)
             </Button>
             <Button
               variant="outline-danger"
-              disabled={selectedCount === 0}
+              disabled={!isAdmin || selected.size === 0}
               onClick={() => bulkUpdate(false)}
             >
               Refuser (sélection)
@@ -291,6 +293,7 @@ export default function EligibilityPage() {
                   type="checkbox"
                   checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
                   onChange={(e) => toggleSelectAllOnPage(e.target.checked)}
+                  disabled={!isAdmin || rows.length === 0}
                 />
               </th>
               <th>Nageur</th>
@@ -309,6 +312,7 @@ export default function EligibilityPage() {
                     checked={selected.has(r.id)}
                     onChange={(e) => toggleSelectOne(r.id, e.target.checked)}
                     aria-label={`Sélectionner ${r.nom} ${r.prenom}`}
+                    disabled={!isAdmin}
                   />
                 </td>
                 <td className="fw-semibold">{r.nom} {r.prenom}</td>
@@ -328,6 +332,7 @@ export default function EligibilityPage() {
                     checked={!!r.eligible_points}
                     onChange={(e) => onToggleOne(r.id, e.target.checked)}
                     label={r.eligible_points ? "Autorisé" : "Refusé"}
+                    disabled={!isAdmin}
                   />
                 </td>
               </tr>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Table, Button, Form, Spinner, Alert } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
-import Navbar from "../components/Navbar";
 import SearchableDropdown from "../components/SearchableDropdown";
 
 export default function OCRUploader({ user }) {
@@ -134,7 +133,6 @@ export default function OCRUploader({ user }) {
 
   return (
     <div className="container p-4" style={{ maxWidth: 1000 }}>
-      <Navbar user={user} />
       <h3 className="mb-3 text-dark fw-bold">Résultats OCR Natation</h3>
 
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">

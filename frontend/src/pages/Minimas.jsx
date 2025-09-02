@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
 import EditMinimaModal from "../components/EditMinimaModal";
-import { Modal, Button, Accordion, Card } from "react-bootstrap";
+import { Modal, Button, Accordion } from "react-bootstrap";
+import Navbar from "../components/Navbar"; // ✅ Import Navbar
 import "../styles/adminDashboard.css";
 
 export default function Minimas() {
@@ -15,6 +15,7 @@ export default function Minimas() {
   const [selectedMinima, setSelectedMinima] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // --- Handle Edit
   const handleEditClick = (minima) => {
     setSelectedMinima({
       min_id: minima.min_id,
@@ -25,6 +26,7 @@ export default function Minimas() {
     setShowModal(true);
   };
 
+  // --- Save changes
   const handleSave = async (updatedMinima) => {
     const ok = window.confirm(
       `Confirmer la modification de ${updatedMinima.epreuve} à ${updatedMinima.temps} ?`
@@ -56,11 +58,13 @@ export default function Minimas() {
     }
   };
 
+  // --- Load user
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user"));
     setUser(savedUser);
   }, []);
 
+  // --- Load minimas
   useEffect(() => {
     fetch("http://localhost:5000/api/minimas/")
       .then((res) => res.json())
@@ -76,6 +80,7 @@ export default function Minimas() {
       .catch((err) => console.error(err));
   }, []);
 
+  // --- Filtres
   const categories = ["Tous", ...new Set(data.map((item) => item.categorie))];
   const genres = [
     "Tous",
@@ -102,6 +107,7 @@ export default function Minimas() {
     setFilteredData(temp);
   }, [data, selectedCategorie, selectedGenre]);
 
+  // --- Group data by catégorie
   const grouped = filteredData.reduce((acc, item) => {
     acc[item.categorie] = acc[item.categorie] || [];
     acc[item.categorie].push(item);
@@ -113,7 +119,7 @@ export default function Minimas() {
       <Navbar user={user} />
 
       <div className="container p-4" style={{ marginTop: "100px" }}>
-        {/* Filtres */}
+        {/* --- Barre de filtres --- */}
         <div className="d-flex gap-3 mb-4 flex-wrap">
           <select
             className="form-select w-auto"
@@ -141,7 +147,6 @@ export default function Minimas() {
         </div>
 
         {/* Accordéon par catégorie */}
-                {/* Accordéon par catégorie (plusieurs ouverts à la fois) */}
         <Accordion alwaysOpen>
           {Object.keys(grouped).map((categorie, idx) => (
             <Accordion.Item eventKey={String(idx)} key={idx}>
@@ -180,7 +185,6 @@ export default function Minimas() {
             </Accordion.Item>
           ))}
         </Accordion>
-
 
         {/* Modal Edit */}
         <EditMinimaModal

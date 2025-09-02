@@ -1,142 +1,232 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { Offcanvas, Dropdown } from "react-bootstrap";
 import {
-  FaUsers,
-  FaSwimmer,
-  FaChartBar,
+  FaBars,
+  FaCog,
+  FaUpload,
+  FaUserPlus,
+  FaDatabase,
   FaSignOutAlt,
   FaHome,
-  FaEnvelope,
-  FaBars,
-  FaBuilding,
 } from "react-icons/fa";
-import { Offcanvas } from "react-bootstrap";
+import ProfileModal from "./ProfilModal";
 import logo from "../assets/logo-ftn.png";
-import ClubsList from "../components/Clubs";
 
 export default function Navbar({ user }) {
-  const [show, setShow] = useState(false);
-  const defaultLinks = [
-    { title: "Accueil", icon: <FaHome />, path: "/home" },
-    { title: "Clubs", icon: <FaBuilding />, path: "/clubs" },
-  ];
+  const [showProfile, setShowProfile] = useState(false);
+  const [show, setShow] = useState(false); // ✅ fix: state for Offcanvas
+  const role = user?.role || "guest";
+  const { pathname } = useLocation();
 
-  const roleLinks = {
-    admin: [
-      { title: "Utilisateurs", icon: <FaUsers />, path: "/admin/users" },
-      { title: "Minimas", icon: <FaSwimmer />, path: "/admin/minimas" },
-      { title: "Résultats", icon: <FaChartBar />, path: "/admin/results" },
-    ],
-    coach: [
-      { title: "Mes Athlètes", icon: <FaUsers />, path: "/athletes" },
-      { title: "Résultats", icon: <FaChartBar />, path: "/results" },
-      { title: "Minimas", icon: <FaSwimmer />, path: "/admin/minimas" },
-      {
-        title: "OCR Uploader",
-        icon: <FaSwimmer />,
-        path: "/coach/ocr-uploader",
-      },
+  const displayName =
+    user?.name ||
+    [user?.prenom, user?.nom].filter(Boolean).join(" ").trim() ||
+    user?.email ||
+    "Mon compte";
+
+  const initials = (displayName || "U")
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const HOME = { title: "Accueil", path: "/home", icon: <FaHome /> };
+  const SCRAPING = { title: "Import résultats", path: "/import", icon: <FaDatabase /> };
+  const OCR = { title: "Import d'image", path: "/ocr", icon: <FaUpload /> };
+  const CREATE = { title: "Créer un compte", path: "/admin/users/create", icon: <FaUserPlus /> };
+
+  const RULES = {
+    title: "Règles",
+    icon: <FaCog />,
+    items: [
+      { title: "Max places par catégorie", path: "/regles/max-places" },
+      { title: "Minimas", path: "/regles/minimas" },
+      { title: "Éligibilité", path: "/regles/eligibilite" },
     ],
   };
 
-  // --- Construire la liste finale ---
-  const links = [
-    ...defaultLinks,
-    ...(roleLinks[user?.role] || []), // ajoute les liens spécifiques au rôle
-  ];
+  const menu =
+    role === "admin"
+      ? [HOME, SCRAPING, OCR, RULES, CREATE]
+      : role === "coach"
+      ? [HOME, SCRAPING, OCR, RULES]
+      : [HOME, SCRAPING];
+
+  const isActive = (p) => pathname.startsWith(p);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    fetch("http://localhost:5000/api/logout", { method: "POST", credentials: "include" }).finally(
+      () => {
+        window.location.href = "/login";
+      }
+    );
+  };
 
   return (
     <>
-      {/* --- Top Navbar --- */}
-      <header className="navbar-fixed d-flex justify-content-between align-items-center px-4 py-2 bg-white shadow-sm">
-        <div className="d-flex align-items-center">
-          <img
-            src={logo}
-            alt="Logo"
-            className="logo"
-            style={{ height: "40px" }}
-          />
-          <h5 className="m-0 ms-2 fw-bold text-primary">
-            Fédération Tunisienne de Natation
-          </h5>
+      <header className="navbar-fixed d-flex justify-content-between align-items-center px-4 bg-white shadow-sm">
+        {/* ----- Brand amélioré ----- */}
+        <div className="brand d-flex align-items-center">
+          <div className="brand-emblem">
+            <img src={logo} alt="FTN" className="brand-logo" />
+          </div>
+          <div className="brand-text ms-3">
+            <div className="brand-line-1">Fédération Tunisienne</div>
+            <div className="brand-line-2">de Natation</div>
+          </div>
         </div>
 
-        {/* Liens visibles uniquement en desktop */}
-        <nav className="d-none d-lg-flex align-items-center gap-4">
-          {links.map((link, i) => (
-            <Link
-              key={i}
-              to={link.path}
-              className="nav-link d-flex align-items-center gap-1"
-            >
-              {link.icon} {link.title}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop NAV + User menu */}
+        <div className="d-none d-lg-flex align-items-center gap-3">
+          <nav className="d-flex align-items-center gap-2">
+            {menu.map((item, idx) =>
+              item.items ? (
+                <Dropdown key={idx} align="end">
+                  <Dropdown.Toggle
+                    as="button"
+                    className={`nav-chip nav-chip-toggle ${
+                      isActive("/regles") ? "nav-chip-active" : ""
+                    }`}
+                  >
+                    <span className="me-1 align-middle">{RULES.icon}</span> {item.title}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    {item.items.map((sub, i) => (
+                      <Dropdown.Item as={Link} to={sub.path} key={i}>
+                        {sub.title}
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
+              ) : (
+                <Link
+                  key={idx}
+                  to={item.path}
+                  className={`nav-chip text-decoration-none ${
+                    isActive(item.path) ? "nav-chip-active" : ""
+                  }`}
+                >
+                  <span className="align-middle me-1">{item.icon}</span> {item.title}
+                </Link>
+              )
+            )}
+          </nav>
 
-        {/* Hamburger pour mobile */}
+          {/* Compte (desktop) */}
+          {role !== "guest" && (
+            <Dropdown align="end">
+              <Dropdown.Toggle
+                as="button"
+                className="nav-chip user-toggle d-flex align-items-center gap-2"
+              >
+                <span className="profile-avatar">{initials}</span>
+                <span className="d-inline-block">{displayName}</span>
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                <Dropdown.Item as={Link} to="/account">
+                  Profil
+                </Dropdown.Item>
+                <Dropdown.Divider />
+                <Dropdown.Item onClick={handleLogout}>
+                  <FaSignOutAlt className="me-2" /> Se déconnecter
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          )}
+        </div>
+
+        {/* Mobile button */}
         <button className="btn d-lg-none" onClick={() => setShow(true)}>
           <FaBars size={24} />
         </button>
       </header>
 
       {/* --- Drawer / Offcanvas --- */}
-      <Offcanvas
-        show={show}
-        onHide={() => setShow(false)}
-        className="swim-drawer"
-      >
+      <Offcanvas show={show} onHide={() => setShow(false)} className="swim-drawer">
         <Offcanvas.Header closeButton className="drawer-header">
           <Offcanvas.Title className="text-white d-flex align-items-center">
             <img
               src={logo}
               alt="Logo"
-              style={{ height: "32px" }}
+              style={{ height: 36 }}
               className="me-2 rounded-circle bg-white p-1"
             />
             <span>Menu</span>
           </Offcanvas.Title>
         </Offcanvas.Header>
 
-        <Offcanvas.Body className="p-0">
+        <Offcanvas.Body className="p-0 d-flex flex-column">
           <nav className="drawer-links">
-            {links.map((link, i) => (
-              <Link
-                key={i}
-                to={link.path}
-                className="drawer-item d-flex align-items-center gap-2"
-              >
-                {link.icon} {link.title}
-              </Link>
-            ))}
+            {menu.map((item, idx) =>
+              item.items ? (
+                <div key={idx} className="px-3 py-2">
+                  <div className="text-uppercase small text-muted mb-2 d-flex align-items-center gap-2">
+                    {RULES.icon} {item.title}
+                  </div>
+                  {item.items.map((sub, i) => (
+                    <Link
+                      key={i}
+                      to={sub.path}
+                      className="drawer-item d-flex align-items-center gap-2 drawer-chip"
+                      onClick={() => setShow(false)}
+                    >
+                      {sub.title}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Link
+                  key={idx}
+                  to={item.path}
+                  className="drawer-item d-flex align-items-center gap-2 drawer-chip"
+                  onClick={() => setShow(false)}
+                >
+                  <span className="align-middle">{item.icon}</span> {item.title}
+                </Link>
+              )
+            )}
           </nav>
 
-          {/* Divider */}
           <hr className="my-2" />
 
-          {/* Profile Section */}
-          <div className="drawer-profile px-3 py-2">
-            <div className="d-flex align-items-center">
-              <div className="profile-avatar me-2">
-                {user?.name ? user.name[0].toUpperCase() : "A"}
-              </div>
+          {role !== "guest" && (
+            <div
+              className="drawer-profile px-3 py-3 d-flex align-items-center gap-2 drawer-chip clickable"
+              role="button"
+              onClick={() => {
+                setShow(false);
+                setShowProfile(true);
+              }}
+            >
+              <div className="profile-avatar">{initials}</div>
               <div>
-                <strong>{user?.name || "Utilisateur"}</strong>
-                <div className="small text-muted">
-                  {user?.email || "user@ftn.tn"}
-                </div>
+                <strong>{displayName}</strong>
+                <div className="small text-muted">{user?.email}</div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Logout */}
-          <div className="px-3 py-2">
-            <button className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2">
+          <div className="flex-grow-1" />
+          <div className="px-3 pb-4 drawer-logout">
+            <button
+              className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
+              onClick={handleLogout}
+            >
               <FaSignOutAlt /> Se déconnecter
             </button>
           </div>
         </Offcanvas.Body>
       </Offcanvas>
+
+      {/* Popup profil (mobile) */}
+      <ProfileModal
+        show={showProfile}
+        onClose={() => setShowProfile(false)}
+        onUpdated={() => {}}
+      />
     </>
   );
 }

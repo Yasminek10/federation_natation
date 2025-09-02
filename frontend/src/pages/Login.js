@@ -1,55 +1,64 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/login.css";
-import logo from "../assets/logo-ftn.png"; // place your logo inside src/assets/
+import logo from "../assets/logo-ftn.png";
 
 function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // ⬇️ Si session déjà active, on n’affiche pas le login
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/me", { credentials: "include" });
+        if (res.ok) {
+          // déjà connecté
+          navigate("/home", { replace: true });
+        }
+      } catch {}
+    })();
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
     try {
       const response = await fetch("http://localhost:5000/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",        // ⬅️ important pour le cookie de session
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
-      if (data.status === "success") {
-        localStorage.setItem("user", JSON.stringify(data));
-        if (data.role === "admin") {
-          navigate("/home");
-        } else if (data.role === "coach") {
-          navigate("/home");
-        }
+      if (response.ok && data.status === "success") {
+        // stocke l’utilisateur pour l’UI (navbar, etc.)
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/home", { replace: true });
       } else {
-        setError(data.message);
+        setError(data.message || "Identifiants incorrects");
       }
-    } catch (err) {
+    } catch {
       setError("Erreur serveur");
     }
   };
+
   return (
     <div className="login-container">
-      {/* Header always top-right */}
       <div className="login-header">
         <img src={logo} alt="FTN Logo" className="ftn-logo" />
         <h1>Fédération Tunisienne de Natation</h1>
       </div>
 
-      {/* Left side with background image */}
       <div className="login-image"></div>
 
-      {/* Right side with login form */}
       <div className="login-form">
-        {/* Centered form title */}
         <h2 className="form-title">Mon Compte</h2>
-
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">Adresse email</label>
@@ -59,9 +68,9 @@ function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="username"
             />
           </div>
-
           <div className="form-group">
             <label htmlFor="password">Mot de passe</label>
             <input
@@ -70,12 +79,11 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
           {error && <p className="error">{error}</p>}
-          <button type="submit" className="btn-login">
-            Se connecter
-          </button>
+          <button type="submit" className="btn-login">Se connecter</button>
         </form>
       </div>
     </div>

@@ -8,6 +8,9 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api")
 # POST /api/login
 @auth_bp.post("/login")
 def login():
+    u = session.get("user")
+    if u and u.get("id"):
+        return jsonify({"status": "already_authenticated", "user": u}), 200
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -38,9 +41,17 @@ def login():
 
     if not ok:
         return jsonify({"status": "error", "message": "Email ou mot de passe incorrect"}), 401
-
-    session["user"] = {"id": user.user_id, "email": user.email, "role": user.role}
-    return jsonify({"status": "success", "role": user.role})
+    
+    session.permanent = True
+    session["user"] = {
+        "id": user.user_id,
+        "email": user.email,
+        "role": user.role,
+        "nom": user.nom,
+        "prenom": user.prenom,
+        "name": f"{user.prenom} {user.nom}".strip(),
+    }
+    return jsonify({"status": "success", "role": user.role, "user": session["user"]})
 
 
 # POST /api/logout
