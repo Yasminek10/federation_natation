@@ -16,7 +16,8 @@ from eligibilite import swimmers_bp
 from maxplaces import maxplaces_bp
 from account import account_bp
 from admin_users import users_admin_bp
-
+from championnats import champ_bp
+from results_import import results_bp
 load_dotenv()
 
 def create_app():
@@ -34,7 +35,8 @@ def create_app():
     
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@localhost:5432/NatationDB'
+
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:yassmin@localhost:5432/NatationDB'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
@@ -72,6 +74,8 @@ def create_app():
     app.register_blueprint(account_bp)
     app.register_blueprint(users_admin_bp)
 
+    app.register_blueprint(champ_bp)
+    app.register_blueprint(results_bp)
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True})
