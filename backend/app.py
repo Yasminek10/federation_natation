@@ -12,7 +12,6 @@ from championnats import championnats_bp
 from epreuves import epreuves_bp
 from ingest import ingest_bp
 from login import auth_bp
-from affichage import swimmers_bp
 from clubs import clubs_bp
 from eligibilite import swimmers_bp
 from maxplaces import maxplaces_bp
@@ -36,7 +35,7 @@ def create_app():
     
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost:5432/NatationDB'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@localhost:5432/NatationDB'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 

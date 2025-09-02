@@ -5,11 +5,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ClubsList from "./components/Clubs";
 import SwimmersList from "./components/SwimmersList";
 // Read user from localStorage
-const currentUser = JSON.parse(localStorage.getItem("user"));
-
 import { RequireAuth, GuestOnly, RequireRole } from "./components/guards";
 import AppLayout from "./layouts/AppLayout";
-
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AccountPage from "./pages/AccountPage";
@@ -21,13 +18,16 @@ import OCRUploader from "./components/OCRUploader";
 import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import CreateAccountPage from "./pages/CreateAccountPage";
-
+const currentUser = JSON.parse(localStorage.getItem("user"));
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/home" element={<Home user={currentUser} />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/clubs" element={<ClubsList user={currentUser} />} />
+      <Route path="/clubs/:clubId/nageurs" element={<SwimmersList user={currentUser}/>} />
+
 
       {/* /login accessible seulement si NON connecté */}
       <Route
