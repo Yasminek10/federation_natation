@@ -4,7 +4,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/base.css";
 import 'bootstrap/dist/css/bootstrap.min.css';
-import './styles/adminDashboard.css';                     // puis ton thème global
+import './styles/adminDashboard.css';     
+import './styles/createaccount.css';
+import "./styles/maxplaces.css";
 
 
 createRoot(document.getElementById("root")).render(

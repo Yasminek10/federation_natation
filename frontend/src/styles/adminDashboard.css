@@ -6,16 +6,51 @@
   backdrop-filter: blur(12px);
   background-color: rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid rgba(0,0,0,0.08);
-  padding-block: 16px;              /* ↑ plus haut */
-  transition: all 0.3s ease;        /* garde la transition */
+  padding-block: 16px;
+  transition: all 0.3s ease;
 }
 
-/* Compat: ancien sélecteur + nouveau */
-.logo { height: 50px; }
-.brand-logo { height: 56px; }       /* ↑ plus grand pour la nouvelle navbar */
-.brand-title { font-size: 1.25rem; }
+/* ===== Brand soigné : logo en médaillon + wordmark en 2 lignes ===== */
+.brand { user-select: none; }
 
-/* === Cadres ("chips") pour les liens de la navbar desktop === */
+.brand-emblem {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  display: grid; place-items: center;
+  border: 2px solid #e6f0ff;                 /* liseré clair */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08);  /* ombre douce */
+}
+
+/* Le logo à l’intérieur du médaillon */
+.brand-emblem .brand-logo {
+  height: 38px; width: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.04));
+}
+
+/* === Unifier la couleur du wordmark FTN === */
+:root {
+  --brand-wordmark: #0b5ed7; /* tu peux aussi mettre #0a58ca */
+}
+.brand-text { color: var(--brand-wordmark); }
+
+/* + léger agrandissement (discret) */
+.brand-line-1,
+.brand-line-2 {
+  color: inherit;
+  font-size: clamp(1.02rem, 1.15vw + 0.62rem, 1.28rem);
+}
+
+/* Responsive : un chouïa plus grand qu'avant aussi */
+@media (max-width: 576px) {
+  .brand-emblem { width: 48px; height: 48px; }
+  .brand-emblem .brand-logo { height: 32px; width: 32px; }
+  .brand-line-1 { font-size: 0.78rem; letter-spacing: .11em; }
+  .brand-line-2 { font-size: 1.12rem; }
+}
+
+/* === Tes styles “chips” inchangés (tu peux garder ce que tu as déjà) === */
 .nav-chip {
   display: inline-flex;
   align-items: center;
@@ -30,116 +65,49 @@
   font-weight: 500;
   text-decoration: none;
 }
-.nav-chip:hover {
-  border-color: #93c5fd;
-  background: #f0f9ff;
-  transform: translateY(-1px);
-  text-decoration: none;
-}
-.nav-chip-active {
-  border-color: #3b82f6;
-  background: #e0f2fe;
-  color: #0a58ca;
-  font-weight: 600;
-}
+.nav-chip:hover { border-color:#93c5fd; background:#f0f9ff; transform: translateY(-1px); }
+.nav-chip-active { border-color:#3b82f6; background:#e0f2fe; color:#0a58ca; font-weight:600; }
 
-/* Empêche Bootstrap de passer le texte en blanc quand le dropdown est ouvert */
+/* Fix couleur Bootstrap sur dropdown chip */
 .dropdown .dropdown-toggle.nav-chip,
 .dropdown.show .dropdown-toggle.nav-chip,
 .dropdown-toggle.nav-chip:focus,
 .dropdown-toggle.nav-chip:active {
-  color: #0f172a !important;
-  background-color: #ffffff !important;
-  border-color: #cfe8ff !important;
-  box-shadow: none !important;
+  color:#0f172a !important;
+  background:#fff !important;
+  border-color:#cfe8ff !important;
+  box-shadow:none !important;
 }
-
-/* Hover / état ouvert (style "chip") */
 .dropdown.show .dropdown-toggle.nav-chip,
 .dropdown-toggle.nav-chip:hover {
-  background-color: #f0f9ff !important;
-  border-color: #93c5fd !important;
+  background:#f0f9ff !important;
+  border-color:#93c5fd !important;
 }
+.user-toggle { border-radius:12px; padding:6px 10px; }
 
-/* État actif “nav-chip-active” */
-.nav-chip-active,
-.dropdown.show .dropdown-toggle.nav-chip.nav-chip-active {
-  background-color: #e0f2fe !important;
-  border-color: #3b82f6 !important;
-  color: #0a58ca !important;
-}
-
-/* Le toggle compte reprend le même style chip */
-.user-toggle {
-  border-radius: 12px;
-  padding: 6px 10px;
-}
-
-/* === Drawer / mobile === */
+/* Drawer / mobile (tu peux garder tes règles existantes) */
 .swim-drawer .drawer-header {
   background: linear-gradient(90deg, #0077b6, #00b4d8);
   color: white;
 }
-
-/* Menu links (mobile) */
-.drawer-links {
-  display: flex;
-  flex-direction: column;
-  padding: 0.5rem;
-}
-
+.drawer-links { display:flex; flex-direction:column; padding:.5rem; }
 .drawer-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  margin: 4px 8px;
-  border-radius: 8px;
-  font-weight: 500;
-  color: #333;
-  text-decoration: none;
-  transition: all 0.2s ease-in-out;
+  display:flex; align-items:center;
+  padding:10px 14px; margin:4px 8px; border-radius:8px;
+  font-weight:500; color:#333; text-decoration:none;
+  transition: all .2s ease-in-out;
 }
-.drawer-item:hover {
-  background: #e0f7fa;
-  color: #0077b6;
-  transform: translateX(4px);
+.drawer-item:hover { background:#e0f7fa; color:#0077b6; transform: translateX(4px); }
+.drawer-item.drawer-chip, .drawer-profile.drawer-chip {
+  border:1.5px solid #dbeafe; border-radius:12px; margin:6px 8px; background:#fff;
 }
-
-/* Items avec cadres en mobile aussi */
-.drawer-item.drawer-chip,
-.drawer-profile.drawer-chip {
-  border: 1.5px solid #dbeafe;
-  border-radius: 12px;
-  margin: 6px 8px;
-  background: #ffffff;
-}
-.drawer-item.drawer-chip:hover,
-.drawer-profile.drawer-chip:hover {
-  background: #f0f9ff;
-}
-
-/* Carte utilisateur cliquable */
-.clickable { cursor: pointer; }
-
-/* Offcanvas body en colonne + bouton logout collé en bas */
-.swim-drawer .offcanvas-body {
-  display: flex;
-  flex-direction: column;
-}
-.drawer-logout { padding-bottom: 24px; }
-
-/* Avatar (desktop + mobile) */
+.clickable { cursor:pointer; }
+.swim-drawer .offcanvas-body { display:flex; flex-direction:column; }
+.drawer-logout { padding-bottom:24px; }
 .profile-avatar {
-  width: 40px;
-  height: 40px;
-  background: #00b4d8;
-  color: white;
-  font-weight: bold;
-  font-size: 1rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width:40px; height:40px; background:#00b4d8; color:#fff;
+  font-weight:700; font-size:1rem; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
 }
 
 /* --- Thème natation (tables) - si tu les utilises ailleurs --- */

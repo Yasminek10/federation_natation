@@ -15,6 +15,7 @@ from login import auth_bp
 from eligibilite import swimmers_bp
 from maxplaces import maxplaces_bp
 from account import account_bp
+from admin_users import users_admin_bp
 
 
 load_dotenv()
@@ -65,6 +66,7 @@ def create_app():
     app.register_blueprint(swimmers_bp)
     app.register_blueprint(maxplaces_bp)
     app.register_blueprint(account_bp)
+    app.register_blueprint(users_admin_bp)
 
     @app.get("/api/health")
     def health():

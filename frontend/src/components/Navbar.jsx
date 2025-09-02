@@ -1,4 +1,3 @@
-// src/components/Navbar.jsx
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Offcanvas, Dropdown } from "react-bootstrap";
@@ -11,7 +10,7 @@ import {
   FaSignOutAlt,
   FaHome,
 } from "react-icons/fa";
-import ProfileModal from "./ProfilModal"; // assure que le fichier s'appelle bien ProfilModal.jsx
+import ProfileModal from "./ProfilModal";
 import logo from "../assets/logo-ftn.png";
 
 export default function Navbar({ user }) {
@@ -48,7 +47,6 @@ export default function Navbar({ user }) {
     ],
   };
 
-  // pas de "Mon compte" dans le menu (desktop : via dropdown à droite)
   const menu =
     role === "admin"
       ? [HOME, SCRAPING, OCR, RULES, CREATE]
@@ -70,11 +68,15 @@ export default function Navbar({ user }) {
   return (
     <>
       <header className="navbar-fixed d-flex justify-content-between align-items-center px-4 bg-white shadow-sm">
-        <div className="d-flex align-items-center">
-          <img src={logo} alt="FTN" className="brand-logo" />
-          <h5 className="m-0 ms-2 fw-bold text-primary brand-title">
-            Fédération Tunisienne de Natation
-          </h5>
+        {/* ----- Brand amélioré ----- */}
+        <div className="brand d-flex align-items-center">
+          <div className="brand-emblem">
+            <img src={logo} alt="FTN" className="brand-logo" />
+          </div>
+          <div className="brand-text ms-3">
+            <div className="brand-line-1">Fédération Tunisienne</div>
+            <div className="brand-line-2">de Natation</div>
+          </div>
         </div>
 
         {/* Desktop NAV + User menu */}
@@ -83,7 +85,6 @@ export default function Navbar({ user }) {
             {menu.map((item, idx) =>
               item.items ? (
                 <Dropdown key={idx} align="end">
-                  {/* RÈGLES → Toggle en style "chip" (pas de variant Bootstrap) */}
                   <Dropdown.Toggle
                     as="button"
                     className={`nav-chip nav-chip-toggle ${
@@ -114,7 +115,7 @@ export default function Navbar({ user }) {
             )}
           </nav>
 
-          {/* Compte (desktop) → même style “chip” */}
+          {/* Compte (desktop) */}
           {role !== "guest" && (
             <Dropdown align="end">
               <Dropdown.Toggle
@@ -157,9 +158,7 @@ export default function Navbar({ user }) {
           </Offcanvas.Title>
         </Offcanvas.Header>
 
-        {/* Body en colonne + logout poussé en bas */}
         <Offcanvas.Body className="p-0 d-flex flex-column">
-          {/* Liens */}
           <nav className="drawer-links">
             {menu.map((item, idx) =>
               item.items ? (
@@ -193,7 +192,6 @@ export default function Navbar({ user }) {
 
           <hr className="my-2" />
 
-          {/* Carte utilisateur : clic => ouvre popup (pas de bouton “Modifier”) */}
           {role !== "guest" && (
             <div
               className="drawer-profile px-3 py-3 d-flex align-items-center gap-2 drawer-chip clickable"
@@ -211,10 +209,7 @@ export default function Navbar({ user }) {
             </div>
           )}
 
-          {/* espace pousseur */}
           <div className="flex-grow-1" />
-
-          {/* Logout bien en bas */}
           <div className="px-3 pb-4 drawer-logout">
             <button
               className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
@@ -230,9 +225,7 @@ export default function Navbar({ user }) {
       <ProfileModal
         show={showProfile}
         onClose={() => setShowProfile(false)}
-        onUpdated={() => {
-          // si tu gères un état global user, mets-le à jour ici
-        }}
+        onUpdated={() => {}}
       />
     </>
   );
