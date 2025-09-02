@@ -19,25 +19,27 @@ def get_minimas():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("""
         SELECT 
-    m.min_id AS min_id,
-    c.nom AS categorie,
-    CASE 
-        WHEN e.is_relay = TRUE THEN 
-            '4_x_' || e.distance || '_m_' || UPPER(REPLACE(e.nage, ' ', '_')) || '_' || e.genre || '_Classement'
-        ELSE
-            e.distance || '_m_' || UPPER(REPLACE(e.nage, ' ', '_')) || '_' || e.genre || '_Classement'
-    END AS epreuve,
-    m.temp_min
-FROM minimas m
-JOIN epreuve e ON m.epreuve_id = e.epreuve_id
-JOIN categorie c ON m.categorie_id = c.categorie_id
-ORDER BY c.nom, e.nage, e.distance;
-
-
+            m.min_id AS min_id,
+            c.nom AS categorie,
+            CASE 
+                WHEN e.legs_count = 4 OR e.legs_count = 10 THEN
+                    e.legs_count || '_x_' || e.distance || '_M_ ' ||
+                    UPPER(REPLACE(e.nage, ' ', '_')) || ' ' || e.genre
+                ELSE
+                    e.distance || '_M_ ' || UPPER(REPLACE(e.nage, ' ', '_')) || ' ' || e.genre
+            END AS epreuve,
+            m.temp_min
+        FROM minimas m
+        JOIN epreuve e ON m.epreuve_id = e.epreuve_id
+        JOIN categorie c ON m.categorie_id = c.categorie_id
+        ORDER BY c.nom, e.nage, e.distance;
     """)
     rows = cur.fetchall()
     cur.close()
     return jsonify(rows)
+
+
+
 
 
 

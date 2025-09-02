@@ -1,0 +1,40 @@
+/* Arrière-plan vague / eau */
+body {
+  /* background: linear-gradient(to bottom right, #ccefff, #e6f7ff);*/
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Titre */
+.title-natation {
+  font-weight: bold;
+  color: #0066cc;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Grille responsive */
+.clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Carte club */
+.club-card {
+  cursor: pointer;
+  border-radius: 15px;
+  background: linear-gradient(145deg, #ffffff, #f0faff);
+  border: 2px solid #cce7ff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.club-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0, 102, 204, 0.2);
+  border-color: #66b3ff;
+}
+
+.club-card .card-title {
+  color: #004c99;
+  font-size: 1.2rem;
+  font-weight: 600;
+}

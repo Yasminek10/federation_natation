@@ -8,54 +8,67 @@ import {
   FaHome,
   FaEnvelope,
   FaBars,
+  FaBuilding,
 } from "react-icons/fa";
 import { Offcanvas } from "react-bootstrap";
 import logo from "../assets/logo-ftn.png";
+import ClubsList from "../components/Clubs";
 
 export default function Navbar({ user }) {
   const [show, setShow] = useState(false);
+  const defaultLinks = [
+    { title: "Accueil", icon: <FaHome />, path: "/home" },
+    { title: "Clubs", icon: <FaBuilding />, path: "/clubs" },
+  ];
 
-  // --- Définir les liens par rôle ---
-  const linksByRole = {
+  const roleLinks = {
     admin: [
-      { title: "Accueil", icon: <FaHome />, path: "/home" },
       { title: "Utilisateurs", icon: <FaUsers />, path: "/admin/users" },
       { title: "Minimas", icon: <FaSwimmer />, path: "/admin/minimas" },
       { title: "Résultats", icon: <FaChartBar />, path: "/admin/results" },
-      { title: "Contact", icon: <FaEnvelope />, path: "/contact" },
     ],
     coach: [
-      { title: "Accueil", icon: <FaHome />, path: "/home" },
       { title: "Mes Athlètes", icon: <FaUsers />, path: "/athletes" },
       { title: "Résultats", icon: <FaChartBar />, path: "/results" },
-      { title: "OCR Uploader", icon: <FaSwimmer />, path: "/coach/ocr-uploader" },
-    ],
-    athlete: [
-      { title: "Accueil", icon: <FaHome />, path: "/home" },
-      { title: "Mes Résultats", icon: <FaChartBar />, path: "/results" },
-      { title: "Contact", icon: <FaEnvelope />, path: "/contact" },
-    ],
-    default: [
-      { title: "Accueil", icon: <FaHome />, path: "/home" },
-      { title: "Contact", icon: <FaEnvelope />, path: "/contact" },
+      { title: "Minimas", icon: <FaSwimmer />, path: "/admin/minimas" },
+      {
+        title: "OCR Uploader",
+        icon: <FaSwimmer />,
+        path: "/coach/ocr-uploader",
+      },
     ],
   };
 
-  const links = linksByRole[user?.role] || linksByRole.default;
+  // --- Construire la liste finale ---
+  const links = [
+    ...defaultLinks,
+    ...(roleLinks[user?.role] || []), // ajoute les liens spécifiques au rôle
+  ];
 
   return (
     <>
       {/* --- Top Navbar --- */}
       <header className="navbar-fixed d-flex justify-content-between align-items-center px-4 py-2 bg-white shadow-sm">
         <div className="d-flex align-items-center">
-          <img src={logo} alt="Logo" className="logo" style={{ height: "40px" }} />
-          <h5 className="m-0 ms-2 fw-bold text-primary">Fédération Tunisienne de Natation</h5>
+          <img
+            src={logo}
+            alt="Logo"
+            className="logo"
+            style={{ height: "40px" }}
+          />
+          <h5 className="m-0 ms-2 fw-bold text-primary">
+            Fédération Tunisienne de Natation
+          </h5>
         </div>
 
         {/* Liens visibles uniquement en desktop */}
         <nav className="d-none d-lg-flex align-items-center gap-4">
           {links.map((link, i) => (
-            <Link key={i} to={link.path} className="nav-link d-flex align-items-center gap-1">
+            <Link
+              key={i}
+              to={link.path}
+              className="nav-link d-flex align-items-center gap-1"
+            >
               {link.icon} {link.title}
             </Link>
           ))}
@@ -68,7 +81,11 @@ export default function Navbar({ user }) {
       </header>
 
       {/* --- Drawer / Offcanvas --- */}
-      <Offcanvas show={show} onHide={() => setShow(false)} className="swim-drawer">
+      <Offcanvas
+        show={show}
+        onHide={() => setShow(false)}
+        className="swim-drawer"
+      >
         <Offcanvas.Header closeButton className="drawer-header">
           <Offcanvas.Title className="text-white d-flex align-items-center">
             <img
@@ -84,7 +101,11 @@ export default function Navbar({ user }) {
         <Offcanvas.Body className="p-0">
           <nav className="drawer-links">
             {links.map((link, i) => (
-              <Link key={i} to={link.path} className="drawer-item d-flex align-items-center gap-2">
+              <Link
+                key={i}
+                to={link.path}
+                className="drawer-item d-flex align-items-center gap-2"
+              >
                 {link.icon} {link.title}
               </Link>
             ))}
@@ -101,7 +122,9 @@ export default function Navbar({ user }) {
               </div>
               <div>
                 <strong>{user?.name || "Utilisateur"}</strong>
-                <div className="small text-muted">{user?.email || "user@ftn.tn"}</div>
+                <div className="small text-muted">
+                  {user?.email || "user@ftn.tn"}
+                </div>
               </div>
             </div>
           </div>

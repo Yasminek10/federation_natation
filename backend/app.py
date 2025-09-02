@@ -13,6 +13,8 @@ from epreuves import epreuves_bp
 from ingest import ingest_bp
 from login import auth_bp
 from affichage import swimmers_bp
+from clubs import clubs_bp
+
 
 
 load_dotenv()
@@ -56,6 +58,8 @@ def create_app():
 
     app.register_blueprint(ingest_bp)
     app.register_blueprint(swimmers_bp)
+    app.register_blueprint(clubs_bp)
+   
 
     @app.get("/api/health")
     def health():

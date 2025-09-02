@@ -17,6 +17,8 @@ export default function OCRUploader({ user }) {
   const [championnat, setChampionnat] = useState("Choisir championnat");
   const [epreuvesList, setEpreuvesList] = useState([]);
   const [championnatsList, setChampionnatsList] = useState([]);
+  const [categories, setCategories] = useState("Choisir une catégorie");
+  const [CategoriList, setCategoriList] = useState([]);
 
   // Valeur fixe pour genre
   const genre = "Dames"; // ou "Messieurs" selon ton besoin
@@ -29,6 +31,11 @@ export default function OCRUploader({ user }) {
       .catch(() => setEpreuvesList([]));
 
     fetch("http://localhost:5000/api/championnats")
+      .then((res) => res.json())
+      .then((data) => setChampionnatsList(data))
+      .catch(() => setChampionnatsList([]));
+
+    fetch("http://localhost:5000/api/categories")
       .then((res) => res.json())
       .then((data) => setChampionnatsList(data))
       .catch(() => setChampionnatsList([]));
@@ -51,6 +58,7 @@ export default function OCRUploader({ user }) {
       formData.append("epreuve", epreuve);
       formData.append("genre", genre); // valeur fixe
       formData.append("championnat", championnat);
+      formData.append("categorie", categories);
 
       const res = await fetch("http://localhost:5000/api/ocr/upload", {
         method: "POST",
@@ -110,7 +118,9 @@ export default function OCRUploader({ user }) {
   const updateRow = (index, field, value) => {
     const newRows = [...rows];
     if (field === "points") {
-      newRows[index].points = Number.isFinite(Number(value)) ? Number(value) : 0;
+      newRows[index].points = Number.isFinite(Number(value))
+        ? Number(value)
+        : 0;
     } else {
       newRows[index][field] = value;
     }
@@ -129,27 +139,35 @@ export default function OCRUploader({ user }) {
 
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
         <SearchableDropdown
+          title={championnat}
+          items={championnatsList}
+          onSelect={(c) => setChampionnat(c.nom)}
+          formatItem={(c) =>
+            `${c.nom} (${c.saison}) (${c.datedeb})-(${c.datefin})`
+          }
+        />
+        <SearchableDropdown
+          title={categories}
+          items={CategoriList}
+          onSelect={(c) => setCategories(c.nom)}
+          formatItem={(c) => `${c.nom}`}
+        />
+
+        <SearchableDropdown
           title={epreuve}
           items={epreuvesList}
           onSelect={(e) =>
             setEpreuve(
-              e.legs_count
-                ? `${e.legs_count}*${e.distance / e.legs_count}M ${e.nage} ${e.genre}`
+              e.legs_count === 4 || e.legs_count === 10
+                ? `${e.legs_count}_*_${e.distance}M ${e.nage} ${e.genre}`
                 : `${e.distance}M ${e.nage} ${e.genre}`
             )
           }
           formatItem={(e) =>
-            e.legs_count
-              ? `${e.legs_count}*${e.distance / e.legs_count}M ${e.nage} ${e.genre}`
-              : `${e.distance}M ${e.nage} ${e.genre}`
+            e.legs_count === 4 || e.legs_count === 10
+              ? `${e.legs_count}_x_${e.distance}_M_ ${e.nage} ${e.genre}`
+              : `${e.distance}_M_ ${e.nage} ${e.genre}`
           }
-        />
-
-        <SearchableDropdown
-          title={championnat}
-          items={championnatsList}
-          onSelect={(c) => setChampionnat(c.nom)}
-          formatItem={(c) => `${c.nom} (${c.saison})`}
         />
 
         {showFileInput && (
@@ -199,7 +217,12 @@ export default function OCRUploader({ user }) {
       )}
 
       {rows.length > 0 && (
-        <Table bordered hover responsive className="mt-3 text-center align-middle">
+        <Table
+          bordered
+          hover
+          responsive
+          className="mt-3 text-center align-middle"
+        >
           <thead style={{ backgroundColor: "#2c3e50", color: "white" }}>
             <tr>
               <th style={{ width: 70 }}>Rang</th>
@@ -225,7 +248,9 @@ export default function OCRUploader({ user }) {
                   <Form.Control
                     type="text"
                     value={row.nationalite}
-                    onChange={(e) => updateRow(index, "nationalite", e.target.value)}
+                    onChange={(e) =>
+                      updateRow(index, "nationalite", e.target.value)
+                    }
                     className="text-center"
                   />
                 </td>
@@ -238,7 +263,11 @@ export default function OCRUploader({ user }) {
                   />
                 </td>
                 <td>
-                  <Button variant="success" size="sm" onClick={() => addRowAfter(index)}>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => addRowAfter(index)}
+                  >
                     <FaPlus />
                   </Button>
                 </td>

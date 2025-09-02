@@ -1,42 +1,35 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import EditMinimaModal from "../components/EditMinimaModal";
-import { Modal, Button, Alert } from "react-bootstrap";
-
+import { Modal, Button, Accordion, Card } from "react-bootstrap";
+import "../styles/adminDashboard.css";
 
 export default function Minimas() {
-  // --- State utilisateur ---
   const [user, setUser] = useState(null);
-
-  // --- State pour les données ---
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [selectedCategorie, setSelectedCategorie] = useState("Tous");
   const [selectedGenre, setSelectedGenre] = useState("Tous");
 
-  // --- Modal pour modification ---
   const [showModal, setShowModal] = useState(false);
   const [selectedMinima, setSelectedMinima] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  // --- Ouvrir le modal ---
+
   const handleEditClick = (minima) => {
     setSelectedMinima({
-      min_id: minima.min_id, // maintenant il est bien défini
+      min_id: minima.min_id,
       epreuve: minima.epreuve,
       temps: minima.temps,
       categorie: minima.categorie,
     });
-    console.log(minima);
     setShowModal(true);
   };
 
-  // --- Sauvegarde depuis le modal ---
   const handleSave = async (updatedMinima) => {
-    // demander confirmation avant envoi
     const ok = window.confirm(
       `Confirmer la modification de ${updatedMinima.epreuve} à ${updatedMinima.temps} ?`
     );
-    if (!ok) return; // si "Annuler", on sort
+    if (!ok) return;
 
     try {
       const res = await fetch(
@@ -51,32 +44,28 @@ export default function Minimas() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur serveur");
 
-      // Mise à jour du state local
       setData((prev) =>
         prev.map((m) =>
           m.min_id === updatedMinima.min_id ? { ...m, temps: data.temp_min } : m
         )
       );
       setShowModal(false);
-      setShowSuccess(true); // ✅ afficher modal succès
+      setShowSuccess(true);
     } catch (err) {
       alert("Erreur : " + err.message);
     }
   };
 
-  // --- Récupération du user depuis localStorage ---
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user"));
     setUser(savedUser);
-    console.log("Contenu de user :", savedUser);
   }, []);
 
-  // --- Fetch des données depuis l'API Flask ---
   useEffect(() => {
     fetch("http://localhost:5000/api/minimas/")
       .then((res) => res.json())
       .then((json) => {
-        const mapped = json.map((item, index) => ({
+        const mapped = json.map((item) => ({
           min_id: item.min_id,
           categorie: item.categorie,
           epreuve: item.epreuve,
@@ -87,19 +76,17 @@ export default function Minimas() {
       .catch((err) => console.error(err));
   }, []);
 
-  // --- Extraire catégories et genres uniques ---
   const categories = ["Tous", ...new Set(data.map((item) => item.categorie))];
   const genres = [
     "Tous",
     ...new Set(
       data.map((item) => {
         const parts = item.epreuve.split("_");
-        return parts[parts.length - 2]; // récupère le genre avant "_Classement"
+        return parts[parts.length - 2];
       })
     ),
   ];
 
-  // --- Appliquer filtres ---
   useEffect(() => {
     let temp = [...data];
     if (selectedCategorie !== "Tous") {
@@ -115,10 +102,9 @@ export default function Minimas() {
     setFilteredData(temp);
   }, [data, selectedCategorie, selectedGenre]);
 
-  // --- Grouper par catégorie pour affichage ---
   const grouped = filteredData.reduce((acc, item) => {
     acc[item.categorie] = acc[item.categorie] || [];
-    acc[item.categorie].push(item); // déjà normalisé avec id et temps
+    acc[item.categorie].push(item);
     return acc;
   }, {});
 
@@ -127,7 +113,7 @@ export default function Minimas() {
       <Navbar user={user} />
 
       <div className="container p-4" style={{ marginTop: "100px" }}>
-        {/* --- Barre de filtres --- */}
+        {/* Filtres */}
         <div className="d-flex gap-3 mb-4 flex-wrap">
           <select
             className="form-select w-auto"
@@ -154,51 +140,57 @@ export default function Minimas() {
           </select>
         </div>
 
-        {/* --- Tableau des minimas --- */}
-        {Object.keys(grouped).map((categorie) => (
-          <div key={categorie} className="mb-5">
-            <h3 className="mb-3">{categorie}</h3>
-            <div className="table-responsive">
-<table className="table swim-table">
-  <thead>
-    <tr>
-      <th>Epreuve</th>
-      <th>Minima</th>
-      {user?.role === "admin" && <th>Actions</th>}
-    </tr>
-  </thead>
-  <tbody>
-    {grouped[categorie].map((row) => (
-      <tr key={row.min_id}>
-        <td>{row.epreuve}</td>
-        <td>{row.temps || "-"}</td>
-        {user?.role === "admin" && (
-          <td>
-            <button
-              className="btn btn-sm btn-primary edit-btn"
-              onClick={() => handleEditClick(row)}
-            >
-              Modifier
-            </button>
-          </td>
-        )}
-      </tr>
-    ))}
-  </tbody>
-</table>
+        {/* Accordéon par catégorie */}
+                {/* Accordéon par catégorie (plusieurs ouverts à la fois) */}
+        <Accordion alwaysOpen>
+          {Object.keys(grouped).map((categorie, idx) => (
+            <Accordion.Item eventKey={String(idx)} key={idx}>
+              <Accordion.Header>{categorie}</Accordion.Header>
+              <Accordion.Body>
+                <div className="table-responsive">
+                  <table className="table swim-table">
+                    <thead>
+                      <tr>
+                        <th>Epreuve</th>
+                        <th>Minima</th>
+                        {user?.role === "admin" && <th>Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grouped[categorie].map((row) => (
+                        <tr key={row.min_id}>
+                          <td>{row.epreuve}</td>
+                          <td>{row.temps || "-"}</td>
+                          {user?.role === "admin" && (
+                            <td>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => handleEditClick(row)}
+                              >
+                                Modifier
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Accordion.Body>
+            </Accordion.Item>
+          ))}
+        </Accordion>
 
-            </div>
-          </div>
-        ))}
 
-        {/* ✅ Modal séparé */}
+        {/* Modal Edit */}
         <EditMinimaModal
           show={showModal}
           handleClose={() => setShowModal(false)}
           minima={selectedMinima}
           onSave={handleSave}
         />
-        {/* ✅ Modal de succès */}
+
+        {/* Modal Succès */}
         <Modal show={showSuccess} onHide={() => setShowSuccess(false)} centered>
           <Modal.Header closeButton>
             <Modal.Title>Succès</Modal.Title>

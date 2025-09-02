@@ -3,6 +3,7 @@ import "../styles/home.css";
 import logo from "../assets/logo-ftn.png";
 import flag from "../assets/drapeau-tunisie.png";
 import { Link, useNavigate } from "react-router-dom";
+import ClubsList from "../components/Clubs";
 
 function Home() {
   const [user, setUser] = useState(null);
@@ -36,7 +37,7 @@ function Home() {
               <a href="#nageurs">Nageurs</a>
             </li>
             <li>
-              <a href="#clubs">Clubs</a>
+               <Link to="/clubs">Clubs</Link>
             </li>
             <li>
               <a href="#resultats">Résultats</a>
@@ -62,11 +63,7 @@ function Home() {
       <section className="banner">
         <h2>
           Bienvenue{" "}
-          {user
-            ? user.role === "admin"
-              ? "Administrateur"
-              : "Coach"
-            : ""}
+          {user ? (user.role === "admin" ? "Administrateur" : "Coach") : ""}
         </h2>
         <p>
           Explorez les compétitions de natation Tunisiennes, consultez les
