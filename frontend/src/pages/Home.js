@@ -40,7 +40,7 @@ function Home() {
                <Link to="/clubs">Clubs</Link>
             </li>
             <li>
-              <a href="#resultats">Résultats</a>
+              <Link to="/championnats">Championnat</Link>
             </li>
 
             {/* Role-based navigation */}

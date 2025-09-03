@@ -17,21 +17,3 @@ def get_epreuves():
     } for e in eps])
 
 
-# @epreuves_bp.route("/", methods=["POST"])
-# def create_epreuve():
-#     data = request.json
-#     e = Epreuve(
-#         nage=data.get("nage"),
-#         distance=data.get("distance"),
-#         genre=data.get("genre"),
-#         is_relay=data.get("is_relay", False)
-#     )
-#     db.session.add(e)
-#     db.session.commit()
-#     return jsonify({
-#         "id": e.epreuve_id,
-#         "nage": e.nage,
-#         "distance": e.distance,
-#         "genre": e.genre,
-#         "is_relay": e.is_relay
-#     }), 201
