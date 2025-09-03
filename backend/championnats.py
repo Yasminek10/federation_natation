@@ -65,6 +65,8 @@ def list_resultats(epreuve_id):
     ])
 
 
+
+
 championnats_bp = Blueprint("championnats", __name__, url_prefix="/api/championnats")
 
 
@@ -80,3 +82,5 @@ def get_championnats():
         "lieu": c.lieu,
         "bassin": c.bassin
     } for c in chs])
+
+
