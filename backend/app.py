@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
 from minimas import minimas_bp  
-from login import auth_bp
 from ocr import ocr_bp
 from championnats import championnats_bp
 from epreuves import epreuves_bp
@@ -19,6 +18,9 @@ from account import account_bp
 from admin_users import users_admin_bp
 from categorie import categories_bp
 from nageurs import nageurs_bp
+from championnats import champ_bp
+from result_api import results_yass_bp
+
 load_dotenv()
 
 def create_app():
@@ -61,7 +63,7 @@ def create_app():
     app.register_blueprint(ocr_bp)
     app.register_blueprint(championnats_bp)
     app.register_blueprint(epreuves_bp)   
-    
+    app.register_blueprint(results_yass_bp)   
 
     app.register_blueprint(ingest_bp)
     app.register_blueprint(swimmers_bp)
@@ -75,10 +77,13 @@ def create_app():
     app.register_blueprint(users_admin_bp)
     app.register_blueprint(nageurs_bp)
 
+    app.register_blueprint(champ_bp)
+
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True})
     return app
+
 # For `flask run` and `python app.py`
 app = create_app()
 

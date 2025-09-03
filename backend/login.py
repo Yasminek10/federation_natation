@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, session
 import bcrypt
-from db import db, User   
+
+from werkzeug.security import generate_password_hash, check_password_hash
+from db import db, User   # ✅ import SQLAlchemy + User model
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api")
 
@@ -68,3 +70,38 @@ def me():
     if not user:
         return jsonify({"authenticated": False}), 401
     return jsonify({"authenticated": True, "user": user})
+
+
+# POST /api/register
+@auth_bp.post("/register")
+def register():
+    data = request.get_json() or {}
+    nom = (data.get("nom") or "").strip()
+    prenom = (data.get("prenom") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    role = (data.get("role") or "coach").strip()  # par défaut coach
+
+    if not nom or not prenom or not email or not password:
+        return jsonify({"status": "error", "message": "Tous les champs sont requis"}), 400
+
+    # Vérifier si email existe déjà
+    if User.query.filter_by(email=email).first():
+        return jsonify({"status": "error", "message": "Email déjà utilisé"}), 409
+
+    # Hasher le mot de passe
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+
+    # Créer l’utilisateur
+    new_user = User(
+        nom=nom,
+        prenom=prenom,
+        email=email,
+        mdp_hash=hashed.decode("utf-8"),  # stocker en str
+        role=role
+    )
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({"status": "success", "message": "Utilisateur créé avec succès"})

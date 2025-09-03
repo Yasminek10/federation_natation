@@ -16,6 +16,7 @@ function Home() {
     console.log("Utilisateur connecté :", savedUser);
   }, []);
 
+  const [open, setOpen] = useState(false);
   return (
     <div className="home">
       {/* ===== Navbar ===== */}
@@ -40,7 +41,7 @@ function Home() {
               <Link to="/clubs">Clubs</Link>
             </li>
             <li>
-              <a href="#resultats">Résultats</a>
+              <Link to="/championnats">Championnat</Link>
             </li>
 
             {/* Role-based navigation */}
@@ -56,8 +57,10 @@ function Home() {
             )}
           </ul>
         </nav>
-        <img src={flag} alt="Drapeau tunisien" className="flag" />
-      </header>
+  <img src={flag} alt="Drapeau tunisien" className="flag" />
+
+  
+</header>
 
       {/* ===== Bannière ===== */}
       <section className="banner">

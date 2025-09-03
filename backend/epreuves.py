@@ -15,4 +15,3 @@ def get_epreuves():
         "is_relay": e.is_relay,
         "legs_count": e.legs_count
     } for e in eps])
-
