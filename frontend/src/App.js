@@ -18,6 +18,7 @@ import OCRUploader from "./components/OCRUploader";
 import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import CreateAccountPage from "./pages/CreateAccountPage";
+import TousNageurs from "./components/TousNageurs";
 const currentUser = JSON.parse(localStorage.getItem("user"));
 export default function App() {
   return (
@@ -26,8 +27,11 @@ export default function App() {
       <Route path="/home" element={<Home user={currentUser} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/clubs" element={<ClubsList user={currentUser} />} />
-      <Route path="/clubs/:clubId/nageurs" element={<SwimmersList user={currentUser}/>} />
-
+      <Route
+        path="/clubs/:clubId/nageurs"
+        element={<SwimmersList user={currentUser} />}
+      />
+      <Route path="/nageurs" element={<TousNageurs user={currentUser} />} />
 
       {/* /login accessible seulement si NON connecté */}
       <Route

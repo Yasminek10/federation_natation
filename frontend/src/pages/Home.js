@@ -34,10 +34,10 @@ function Home() {
               <a href="#accueil">Accueil</a>
             </li>
             <li>
-              <a href="#nageurs">Nageurs</a>
+              <Link to="/nageurs">Nageurs</Link>
             </li>
             <li>
-               <Link to="/clubs">Clubs</Link>
+              <Link to="/clubs">Clubs</Link>
             </li>
             <li>
               <a href="#resultats">Résultats</a>

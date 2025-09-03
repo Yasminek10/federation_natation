@@ -36,8 +36,8 @@ export default function OCRUploader({ user }) {
 
     fetch("http://localhost:5000/api/categories")
       .then((res) => res.json())
-      .then((data) => setChampionnatsList(data))
-      .catch(() => setChampionnatsList([]));
+      .then((data) => setCategoriList(data))
+      .catch(() => setCategoriList([]));
   }, []);
 
   const handleFileChange = (e) => {

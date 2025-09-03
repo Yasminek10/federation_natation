@@ -1,0 +1,48 @@
+/* Conteneur principal */
+.nageurs-container {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  padding: 20px;
+}
+
+/* Sidebar des filtres */
+.filters-col {
+  flex: 1;
+  max-width: 280px;
+  min-width: 240px;
+}
+
+/* Colonne tableau */
+.table-col {
+  flex: 3;
+  overflow-x: auto;
+}
+
+/* Carte filtres */
+.filters-col .card {
+  position: sticky;
+  top: 20px; /* sidebar fixe si on scroll */
+}
+
+/* Carte tableau */
+.table-col .card {
+  width: 100%;
+}
+
+/* Table améliorée */
+.table-col table {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.table-col thead th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+/* Pagination */
+.pagination {
+  margin-top: 15px;
+}

@@ -17,7 +17,8 @@ from eligibilite import swimmers_bp
 from maxplaces import maxplaces_bp
 from account import account_bp
 from admin_users import users_admin_bp
-
+from categorie import categories_bp
+from nageurs import nageurs_bp
 load_dotenv()
 
 def create_app():
@@ -66,11 +67,13 @@ def create_app():
     app.register_blueprint(swimmers_bp)
 
     app.register_blueprint(clubs_bp)
+    app.register_blueprint(categories_bp)
    
 
     app.register_blueprint(maxplaces_bp)
     app.register_blueprint(account_bp)
     app.register_blueprint(users_admin_bp)
+    app.register_blueprint(nageurs_bp)
 
     @app.get("/api/health")
     def health():
