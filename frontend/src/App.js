@@ -19,7 +19,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CoachDashboard from "./pages/CoachDashboard";
 import CreateAccountPage from "./pages/CreateAccountPage";
 
-import AnalysePage from "./pages/AnalysePage";
 import Championnats from "./pages/Championnats";
 import Epreuves from "./pages/Epreuves";
 import Resultats from "./pages/Resultats";
@@ -139,7 +138,6 @@ export default function App() {
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<div className="p-4">Page introuvable</div>} />
       <Route path="/import" element={<ImportResults />} />
-      <Route path="/analyse" element={<AnalysePage />} />
        <Route path="/championnats" element={<Championnats />} />
         <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
         <Route path="/epreuves/:epreuveId/resultats" element={<Resultats />} />

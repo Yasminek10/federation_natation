@@ -58,42 +58,10 @@ function Home() {
           </ul>
         </nav>
   <img src={flag} alt="Drapeau tunisien" className="flag" />
-  <a href="/import" className="analysis-link">Importer</a>
 
-  <button className="btn-create" onClick={() => setOpen(true)}>
-    Créer Compte
-  </button>
+  
 </header>
- {/* ===== Modal Form ===== */}
-   {open && (
-  <div className="popup-overlay">
-    <div className="popup">
-      <h2 className="popup-title">Créer un compte</h2>
-      <form className="popup-form">
-        <label>Nom</label>
-        <input type="text" placeholder="Votre nom" />
 
-        <label>Prénom</label>
-        <input type="text" placeholder="Votre prénom" />
-
-        <label>Email</label>
-        <input type="email" placeholder="exemple@gmail.com" />
-
-        <label>Mot de passe</label>
-        <input type="password" placeholder="********" />
-
-        <label>Rôle</label>
-        <input type="text" value="coach" readOnly />
-
-        <button type="submit" className="btn-submit">S’inscrire</button>
-      </form>
-
-      <button onClick={() => setOpen(false)} className="btn-cancel">
-        Annuler
-      </button>
-    </div>
-  </div>
-)}
       {/* ===== Bannière ===== */}
       <section className="banner">
         <h2>

@@ -1,67 +1,48 @@
 # backend/championnats.py
 from flask import Blueprint, jsonify
 from db import db
-from db import Championnat, Epreuve, ResultatBase, ResultatIndividuel, ResultatRelais, Nageur, Equipe, CEC
+from db import db, Championnat, CEC, Epreuve, Categorie
 
 champ_bp = Blueprint("champ", __name__, url_prefix="/api/championnats")
 
-# Liste des championnats
+
+
 @champ_bp.get("/")
-def list_championnats():
-    championnats = Championnat.query.all()
+def get_championnats():
+    ch = Championnat.query.all()
     return jsonify([
         {
             "id": c.champ_id,
             "nom": c.nom,
             "saison": c.saison,
             "lieu": c.lieu,
-            "datedeb": c.datedeb.isoformat(),
-            "datefin": c.datefin.isoformat()
+            "datedeb": str(c.datedeb),
+            "datefin": str(c.datefin),
         }
-        for c in championnats
+        for c in ch
     ])
 
-# Liste des épreuves d’un championnat
+
 @champ_bp.get("/<int:champ_id>/epreuves")
-def list_epreuves(champ_id):
+def get_epreuves(champ_id):
     epreuves = (
-        db.session.query(Epreuve)
-        .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
-        .filter_by(champ_id=champ_id)
+        db.session.query(CEC, Epreuve, Categorie)
+        .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
+        .join(Categorie, Categorie.categorie_id == CEC.categorie_id)
+        .filter(CEC.champ_id == champ_id)
         .all()
     )
     return jsonify([
         {
-            "id": e.epreuve_id,
-            "nage": e.nage,
-            "distance": e.distance,
-            "genre": e.genre,
-            "is_relay": e.is_relay
+            "cec_id": c.CEC.cec_id,
+            "epreuve_id": c.Epreuve.epreuve_id,
+            "categorie": c.Categorie.nom,
+            "nage": c.Epreuve.nage,
+            "distance": c.Epreuve.distance,
+            "genre": c.Epreuve.genre,
+            "is_relay": c.Epreuve.is_relay,
         }
-        for e in epreuves
-    ])
-
-# Résultats d’une épreuve
-@champ_bp.get("/epreuves/<int:epreuve_id>/resultats")
-def list_resultats(epreuve_id):
-    resultats = (
-        db.session.query(ResultatBase, Nageur.nom, Nageur.prenom)
-        .join(ResultatIndividuel, ResultatBase.resultat_id == ResultatIndividuel.resultat_id)
-        .join(Nageur, ResultatIndividuel.id_nageur == Nageur.id_nageur)
-        .filter(ResultatBase.cec_id.in_(
-            db.session.query("cec_id").filter_by(epreuve_id=epreuve_id)
-        ))
-        .all()
-    )
-    return jsonify([
-        {
-            "place": r.ResultatBase.place,
-            "temps": r.ResultatBase.temps,
-            "points": r.ResultatBase.points,
-            "nom": r.nom,
-            "prenom": r.prenom
-        }
-        for r in resultats
+        for c in epreuves
     ])
 
 

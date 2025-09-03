@@ -17,7 +17,8 @@ from maxplaces import maxplaces_bp
 from account import account_bp
 from admin_users import users_admin_bp
 from championnats import champ_bp
-from results_import import results_bp
+from result_api import results_yass_bp
+
 load_dotenv()
 
 def create_app():
@@ -55,13 +56,12 @@ def create_app():
 
     # Blueprints (add more later, e.g., pages_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(results_bp)
 
     app.register_blueprint(minimas_bp)  # ← register minimas blueprint
     app.register_blueprint(ocr_bp)
     app.register_blueprint(championnats_bp)
     app.register_blueprint(epreuves_bp)   
-    
+    app.register_blueprint(results_yass_bp)   
 
     app.register_blueprint(ingest_bp)
     app.register_blueprint(swimmers_bp)
@@ -74,11 +74,12 @@ def create_app():
     app.register_blueprint(users_admin_bp)
 
     app.register_blueprint(champ_bp)
-    app.register_blueprint(results_bp)
+
     @app.get("/api/health")
     def health():
         return jsonify({"ok": True})
     return app
+
 # For `flask run` and `python app.py`
 app = create_app()
 

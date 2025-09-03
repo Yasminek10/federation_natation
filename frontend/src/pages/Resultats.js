@@ -1,104 +1,144 @@
 // frontend/src/pages/Resultats.js
 import React, { useEffect, useState } from "react";
-import { Container, Table, Form } from "react-bootstrap";
+import { Container, Table, Form, Card, Row, Col, Spinner } from "react-bootstrap";
 import { useParams } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import "../styles/results.css"; // <-- custom styles
 
 function Resultats() {
   const { epreuveId } = useParams();
   const [resultats, setResultats] = useState([]);
-  const [filterGenre, setFilterGenre] = useState("");
-  const [filterDistance, setFilterDistance] = useState("");
   const [filterClub, setFilterClub] = useState("");
-  const [filterNage, setFilterNage] = useState("");
+  const [filterCategorie, setFilterCategorie] = useState("");
+  const [loading, setLoading] = useState(true);
 
+  // Liste dynamique des clubs
+  const clubs = Array.from(new Set(resultats.map(r => r.club).filter(Boolean)));
 
-  
+  // Liste statique des catégories
+  const categories = [
+    { id: 1, label: "Juniors/Seniors" },
+    { id: 2, label: "Cadets" },
+    { id: 3, label: "Minimes" },
+    { id: 4, label: "Benjamins" },
+    { id: 5, label: "TC" },
+  ];
 
   useEffect(() => {
-  fetch(`http://localhost:5000/api/epreuves/${epreuveId}/resultats`)
+    fetch(`http://localhost:5000/api/epreuves/${epreuveId}/resultats`)
       .then(res => res.json())
-      .then(setResultats);
+      .then(data => {
+        setResultats(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [epreuveId]);
 
+  // === Appliquer filtres ===
   const filtered = resultats.filter(r => {
-  return (
-    (!filterGenre || r.genre === filterGenre) &&
-    (!filterDistance || r.distance == filterDistance) && // == tolère int/str
-    (!filterClub || (r.club && r.club === filterClub)) &&
-    (!filterNage || r.nage === filterNage)
-  );
-});
-  
+    const byClub = !filterClub || (r.club && r.club === filterClub);
+    const byCategorie = !filterCategorie || (r.categorie && r.categorie === filterCategorie);
+    return byClub && byCategorie;
+  });
+
+  if (loading) {
+    return (
+      <Container className="d-flex justify-content-center align-items-center vh-100">
+        <Spinner animation="border" variant="primary" />
+      </Container>
+    );
+  }
 
   return (
     <Container className="mt-4">
-      <h2>Résultats</h2>
-      <Form className="d-flex gap-3 mb-3">
-        {/* Genre */}
-        <Form.Select value={filterGenre} onChange={e => setFilterGenre(e.target.value)}>
-          <option value="">Tous genres</option>
-          <option value="Dames">Dames</option>
-          <option value="Messieurs">Messieurs</option>
-          <option value="Mixte">Mixte</option>
-        </Form.Select>
-        {/* Distance */}
-        <Form.Control
-          type="number"
-          placeholder="Filtrer par distance"
-          value={filterDistance}
-          onChange={e => setFilterDistance(e.target.value)}
-        />
-        {/* Club */}
-        <Form.Select value={filterClub} onChange={e => setFilterClub(e.target.value)}>
-          <option value="">Tous clubs</option>
-          {[...new Set(resultats.map(r => r.club))].map(c => (
-            <option key={c} value={c}>{c}</option>
-        ))}
-        </Form.Select>
-        {/* Nage */}
-        <Form.Select value={filterNage} onChange={e => setFilterNage(e.target.value)}>
-      <option value="">Toutes nages</option>
-      {[...new Set(resultats.map(r => r.nage))].map(n => (
-        <option key={n} value={n}>{n}</option>
-      ))}
-    </Form.Select>
-  </Form>
+      <h2 className="text-center mb-4"> Résultats de l'épreuve</h2>
+
+      {/* === Filtres === */}
+      <Card className="p-3 mb-4 shadow-sm">
+        <Row className="g-3">
+          {/* Filtre club */}
+          <Col xs={12} md={6} lg={4}>
+            <Form.Select
+              value={filterClub}
+              onChange={e => setFilterClub(e.target.value)}
+            >
+              <option value="">Tous les clubs</option>
+              {clubs.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+
+          {/* Filtre catégorie */}
+          <Col xs={12} md={6} lg={4}>
+            <Form.Select
+              value={filterCategorie}
+              onChange={e => setFilterCategorie(e.target.value)}
+            >
+              <option value="">Toutes catégories</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.label}>
+                  {cat.label}
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+        </Row>
+      </Card>
+
       {/* === Tableau === */}
-      <Table striped bordered hover>
-        <thead>
-          <tr>
-            <th>Place</th>
-            <th>Nom</th>
-            <th>Prénom</th>
-            <th>Temps</th>
-            <th>Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((r, i) => (
-            <tr key={i}>
-              <td>{r.place}</td>
-              <td>{r.nom}</td>
-              <td>{r.prenom}</td>
-              <td>{r.temps}</td>
-              <td>{r.points}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-       {/* === Graphiques === */}
-  <h3 className="mt-4">Visualisations</h3>
-  <ResponsiveContainer width="100%" height={300}>
-    <BarChart data={filtered}>
-      <XAxis dataKey="club" />
-      <YAxis />
-      <Tooltip />
-      <Legend />
-      <Bar dataKey="points" fill="#8884d8" />
-    </BarChart>
-  </ResponsiveContainer>
-</Container>
+      <Card className="shadow-sm mb-4">
+        <Card.Body>
+          <h5 className="mb-3">Classement</h5>
+          <div className="table-responsive">
+            <Table striped bordered hover responsive>
+              <thead className="table-light">
+                <tr>
+                  <th>Place</th>
+                  <th>Nom</th>
+                  <th>Prénom</th>
+                  <th>Temps</th>
+                  <th>Points</th>
+                  <th>Club</th>
+                  <th>Catégorie</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.place}</td>
+                    <td>{r.nom}</td>
+                    <td>{r.prenom}</td>
+                    <td>{r.temps}</td>
+                    <td>{r.points}</td>
+                    <td>{r.club}</td>
+                    <td>{r.categorie}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+        </Card.Body>
+      </Card>
+
+      {/* === Graphiques === */}
+      <Card className="shadow-sm">
+        <Card.Body>
+          <h5 className="mb-3">Répartition des points par club</h5>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={filtered}>
+              <XAxis dataKey="club" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="points" fill="#0d6efd" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 }
 
