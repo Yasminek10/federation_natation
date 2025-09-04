@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
 from minimas import minimas_bp  
-from ocr import ocr_bp
+#from ocr import ocr_bp
 from championnats import championnats_bp
 from epreuves import epreuves_bp
 from ingest import ingest_bp
@@ -20,6 +20,7 @@ from categorie import categories_bp
 from nageurs import nageurs_bp
 from championnats import champ_bp
 from result_api import results_yass_bp
+from ocr_blueprint import ocr_bp
 
 load_dotenv()
 
