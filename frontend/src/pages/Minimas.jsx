@@ -82,28 +82,31 @@ export default function Minimas() {
 
   // --- Filtres
   const categories = ["Tous", ...new Set(data.map((item) => item.categorie))];
-  const genres = [
-    "Tous",
-    ...new Set(
-      data.map((item) => {
-        const parts = item.epreuve.split("_");
-        return parts[parts.length - 2];
-      })
-    ),
-  ];
+ const genres = [
+  "Tous",
+  ...new Set(
+    data.map((item) => {
+      const parts = item.epreuve.split(" "); // ✅ découper par espace
+      return parts[parts.length - 1]; // dernier mot = genre
+    })
+  ),
+];
+
 
   useEffect(() => {
     let temp = [...data];
     if (selectedCategorie !== "Tous") {
       temp = temp.filter((item) => item.categorie === selectedCategorie);
     }
-    if (selectedGenre !== "Tous") {
-      temp = temp.filter((item) => {
-        const parts = item.epreuve.split("_");
-        const genre = parts[parts.length - 2];
-        return genre === selectedGenre;
-      });
-    }
+if (selectedGenre !== "Tous") {
+  temp = temp.filter((item) => {
+    const parts = item.epreuve.split(" "); // ✅
+    const genre = parts[parts.length - 1];
+    return genre === selectedGenre;
+  });
+}
+
+
     setFilteredData(temp);
   }, [data, selectedCategorie, selectedGenre]);
 
