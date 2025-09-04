@@ -1,3 +1,4 @@
+// src/components/Navbar_Home.jsx
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import logo from "../assets/logo-ftn.png";
@@ -8,60 +9,40 @@ export default function Navbar_Home({ user }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="navbar">
-      {/* Logo */}
+    <header className="home-navbar">
+      {/* Logo + Wordmark */}
       <div className="logo-container">
         <img src={logo} alt="FTN" className="logo" />
-        <h3>Fédération Tunisienne de Natation</h3>
+        <h3 className="brand-title">Fédération Tunisienne de Natation</h3>
       </div>
 
-      {/* Bouton hamburger (mobile) */}
-      <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
+      {/* Burger (mobile) */}
+      <button
+        className="menu-toggle"
+        onClick={() => setMenuOpen(!menuOpen)}
+        aria-label="Ouvrir le menu"
+      >
         ☰
       </button>
 
       {/* Navigation */}
       <nav className={`nav-links ${menuOpen ? "active" : ""}`}>
-        <ul>
-          <li>
-            <a href="#accueil" onClick={() => setMenuOpen(false)}>
-              Accueil
-            </a>
-          </li>
-          <li>
-            <Link to="/nageurs" onClick={() => setMenuOpen(false)}>
-              Nageurs
-            </Link>
-          </li>
-          <li>
-            <Link to="/clubs" onClick={() => setMenuOpen(false)}>
-              Clubs
-            </Link>
-          </li>
-          <li>
-            <Link to="/championnats" onClick={() => setMenuOpen(false)}>
-              Championnat
-            </Link>
-          </li>
+        <ul onClick={() => setMenuOpen(false)}>
+          <li><Link to="/home">Accueil</Link></li>
+          <li><Link to="/nageurs">Nageurs</Link></li>
+          <li><Link to="/clubs">Clubs</Link></li>
+          <li><Link to="/championnats">Championnat</Link></li>
 
           {user?.role === "admin" && (
-            <li>
-              <Link to="/admin-dashboard" onClick={() => setMenuOpen(false)}>
-                Admin Dashboard
-              </Link>
-            </li>
+            <li><Link to="/admin-dashboard">Admin Dashboard</Link></li>
           )}
           {user?.role === "coach" && (
-            <li>
-              <Link to="/coach-dashboard" onClick={() => setMenuOpen(false)}>
-                Coach Dashboard
-              </Link>
-            </li>
+            <li><Link to="/coach-dashboard">Coach Dashboard</Link></li>
           )}
         </ul>
       </nav>
 
-      {/* Flag */}
+      {/* Drapeau (garde-le tel quel) */}
       <img src={flag} alt="Drapeau tunisien" className="flag" />
     </header>
   );

@@ -3,8 +3,9 @@ import React, { useEffect, useState } from "react";
 import { Container, Card, ListGroup, Spinner } from "react-bootstrap";
 import { useParams, useNavigate } from "react-router-dom";
 import { Trophy } from "lucide-react"; // joli icône
+import Navbar_Home from "../components/Navbar_Home";
 
-function Epreuves() {
+function Epreuves({ user }) {
   const { champId } = useParams();
   const [epreuves, setEpreuves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,9 @@ function Epreuves() {
   }, [champId]);
 
   return (
+    <div>
+      {/* ===== Navbar ===== */}
+      <Navbar_Home user={user} />
     <Container className="mt-5">
       {/* Header */}
       <div className="text-center mb-4">
@@ -77,6 +81,7 @@ function Epreuves() {
         `}
       </style>
     </Container>
+    </div>
   );
 }
 

@@ -2,8 +2,9 @@
 import React, { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import Navbar_Home from "../components/Navbar_Home";
 
-function Championnats() {
+function Championnats({ user }) {
   const [championnats, setChampionnats] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -27,6 +28,9 @@ function Championnats() {
   }
 
   return (
+    <div>
+      {/* ===== Navbar ===== */}
+      <Navbar_Home user={user} />
     <Container className="mt-4">
       <h2 className="text-center mb-4">🏆 Liste des Championnats</h2>
       <Row className="g-4">
@@ -56,6 +60,7 @@ function Championnats() {
         ))}
       </Row>
     </Container>
+    </div>
   );
 }
 
