@@ -22,9 +22,9 @@ import TousNageurs from "./components/TousNageurs";
 import Championnats from "./pages/Championnats";
 import Epreuves from "./pages/Epreuves";
 import Resultats from "./pages/Resultats";
+import SwimmerDetails from "./pages/SwimmerDetails";
 
 const currentUser = JSON.parse(localStorage.getItem("user"));
-
 
 export default function App() {
   return (
@@ -39,6 +39,19 @@ export default function App() {
         element={<SwimmersList user={currentUser} />}
       />
       <Route path="/nageurs" element={<TousNageurs user={currentUser} />} />
+      <Route
+        path="/nageurs/:nageurId"
+        element={<SwimmerDetails user={currentUser} />}
+      />
+
+
+      <Route
+        path="/clubs/:clubId/nageurs"
+        element={<SwimmersList user={currentUser} />}
+      />
+      <Route path="/championnats" element={<Championnats />} />
+      <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
+      <Route path="/epreuves/:epreuveId/resultats" element={<Resultats />} />
 
       <Route path="/clubs/:clubId/nageurs" element={<SwimmersList user={currentUser}/>} />
       <Route path="/championnats" element={<Championnats user={currentUser}/>} />
@@ -146,9 +159,9 @@ export default function App() {
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<div className="p-4">Page introuvable</div>} />
       <Route path="/import" element={<ImportResults />} />
-       <Route path="/championnats" element={<Championnats />} />
-        <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
-        <Route path="/epreuves/:epreuveId/resultats" element={<Resultats />} />
+      <Route path="/championnats" element={<Championnats />} />
+      <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
+      <Route path="/epreuves/:epreuveId/resultats" element={<Resultats />} />
       {/* add other pages later */}
     </Routes>
   );

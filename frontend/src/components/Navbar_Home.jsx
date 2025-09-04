@@ -27,17 +27,37 @@ export default function Navbar_Home({ user }) {
 
       {/* Navigation */}
       <nav className={`nav-links ${menuOpen ? "active" : ""}`}>
-        <ul onClick={() => setMenuOpen(false)}>
-          <li><Link to="/home">Accueil</Link></li>
-          <li><Link to="/nageurs">Nageurs</Link></li>
-          <li><Link to="/clubs">Clubs</Link></li>
-          <li><Link to="/championnats">Championnat</Link></li>
+        <ul>
+          <li>
+            <Link to="/home" onClick={() => setMenuOpen(false)}>
+              Accueil
+            </Link>
+          </li>
+          <li>
+            <Link to="/nageurs" onClick={() => setMenuOpen(false)}>
+              Nageurs
+            </Link>
+          </li>
+          <li>
+            <Link to="/clubs" onClick={() => setMenuOpen(false)}>
+              Clubs
+            </Link>
+          </li>
+          <li>
+            <Link to="/championnats" onClick={() => setMenuOpen(false)}>
+              Championnat
+            </Link>
+          </li>
 
           {user?.role === "admin" && (
-            <li><Link to="/admin-dashboard">Admin Dashboard</Link></li>
+            <li>
+              <Link to="/admin-dashboard">Admin Dashboard</Link>
+            </li>
           )}
           {user?.role === "coach" && (
-            <li><Link to="/coach-dashboard">Coach Dashboard</Link></li>
+            <li>
+              <Link to="/coach-dashboard">Coach Dashboard</Link>
+            </li>
           )}
         </ul>
       </nav>
