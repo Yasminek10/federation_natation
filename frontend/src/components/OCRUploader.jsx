@@ -3,17 +3,10 @@ import { Table, Button, Form, Spinner, Alert } from "react-bootstrap";
 import { FaPlus } from "react-icons/fa";
 import SearchableDropdown from "../components/SearchableDropdown";
 
-/**
- * Upload + prévisualisation OCR
- * - POST /api/ocrx/analyze  (file + epreuve_id + categorie_id)
- * - POST /api/ocrx/recalc   (rows + epreuve_id + categorie_id)
- * - Tableau éditable + cumul par club en live
- */
-
 const analyzeEndpoint = "http://localhost:5000/api/ocrx/analyze";
 const recalcEndpoint  = "http://localhost:5000/api/ocrx/recalc";
 
-// helper pour lire un ID quelle que soit la clé
+// helper: lire un ID quelle que soit la clé
 const pickId = (obj, keys) => {
   if (!obj) return null;
   for (const k of keys) {
@@ -37,22 +30,31 @@ export default function OCRUploader() {
   // --------- Listes & sélections ----------
   const [epreuvesList, setEpreuvesList] = useState([]);
   const [categoriesList, setCategoriesList] = useState([]);
+  const [championnatsList, setChampionnatsList] = useState([]);
 
   const [selectedEpreuve, setSelectedEpreuve] = useState(null);
   const [selectedCategorie, setSelectedCategorie] = useState(null);
 
+  // Championnat: soit sélection existante, soit saisie libre
+  const [selectedChampionnat, setSelectedChampionnat] = useState(null);
+  const [champName, setChampName] = useState("");
+
   // IDs normalisés
   const selectedEpreuveId   = pickId(selectedEpreuve,  ["id", "epreuve_id", "epreuveId"]);
   const selectedCategorieId = pickId(selectedCategorie, ["id", "categorie_id", "categorieId"]);
+  const selectedChampionnatId = pickId(selectedChampionnat, ["id", "champ_id", "championnat_id"]);
 
-  // Labels d’affichage
+  // Labels
   const epreuveLabel = selectedEpreuve
     ? ((selectedEpreuve.legs_count === 4 || selectedEpreuve.legs_count === 10)
         ? `${selectedEpreuve.legs_count}_x_${selectedEpreuve.distance}M ${selectedEpreuve.nage} ${selectedEpreuve.genre}`
         : `${selectedEpreuve.distance}M ${selectedEpreuve.nage} ${selectedEpreuve.genre}`)
     : "Choisir épreuve";
 
-  const categorieLabel = selectedCategorie ? selectedCategorie.nom : "Choisir une catégorie";
+  const categorieLabel   = selectedCategorie ? selectedCategorie.nom : "Choisir une catégorie";
+  const championnatLabel = selectedChampionnat
+    ? `${selectedChampionnat.nom} (${selectedChampionnat.saison}) ${selectedChampionnat.datedeb} - ${selectedChampionnat.datefin}`
+    : "Choisir championnat";
 
   // --------- Debounce pour /recalc ----------
   const recalcTimer = useRef(null);
@@ -69,12 +71,28 @@ export default function OCRUploader() {
       .then((r) => r.json())
       .then(setCategoriesList)
       .catch(() => setCategoriesList([]));
+
+    fetch("http://localhost:5000/api/championnats")
+      .then((r) => r.json())
+      .then(setChampionnatsList)
+      .catch(() => setChampionnatsList([]));
   }, []);
 
-  // --------- Handlers upload / analyse ----------
+  // --------- Handlers ----------
   const handleFileChange = (e) => {
     setFile(e.target.files?.[0] || null);
     setError("");
+  };
+
+  const handlePickChampionnat = (c) => {
+    setSelectedChampionnat(c);
+    const label = `${c.nom}${c.saison ? ` (${c.saison})` : ""}`;
+    setChampName(label);
+  };
+
+  const clearChampionnatSelection = () => {
+    setSelectedChampionnat(null);
+    setChampName("");
   };
 
   const handleAnalyze = async () => {
@@ -92,15 +110,14 @@ export default function OCRUploader() {
       formData.append("file", file);
       formData.append("epreuve_id", String(selectedEpreuveId));
       formData.append("categorie_id", String(selectedCategorieId));
+      if (selectedChampionnatId) formData.append("championnat_id", String(selectedChampionnatId));
+      if (champName)            formData.append("championnat_nom", champName);
 
       const res = await fetch(analyzeEndpoint, { method: "POST", body: formData });
       if (!res.ok) throw new Error(await res.text());
 
       const { rows: rws, club_totals } = await res.json();
-      const finalRows = Array.isArray(rws) ? rws : [];
-
-      // ⬇️ Toujours remplacer le tableau (pas de concaténation)
-      setRows(finalRows);
+      setRows(Array.isArray(rws) ? rws : []);
       setClubTotals(club_totals || []);
       setShowFileInput(false);
       setFile(null);
@@ -111,14 +128,13 @@ export default function OCRUploader() {
     }
   };
 
+  // une nouvelle image remplace toujours la précédente
   const handleAddAnotherImage = () => {
-    // ⬇️ Pas de confirm, on réaffiche juste l’input pour une nouvelle photo
     setShowFileInput(true);
     setError("");
     setFile(null);
   };
 
-  // --------- Recalcul serveur après édition ----------
   const recalc = async (rowsDraft) => {
     if (!selectedEpreuveId || !selectedCategorieId) return;
     try {
@@ -176,6 +192,47 @@ export default function OCRUploader() {
     recalcTimer.current = setTimeout(() => recalc(draft), DEBOUNCE_MS);
   };
 
+  // --- Export PDF ---
+const handleDownloadPDF = async () => {
+  try {
+    // 1) Si un championnat est sélectionné -> nom + saison + dates
+    // 2) Sinon -> texte saisi tel quel
+    const championshipStr = selectedChampionnat
+      ? `${selectedChampionnat.nom}${
+          selectedChampionnat.saison ? ` (${selectedChampionnat.saison})` : ""
+        } ${selectedChampionnat.datedeb} - ${selectedChampionnat.datefin}`
+      : (champName?.trim() || "");
+
+    const payload = {
+      championnat: championshipStr,
+      epreuve_label: epreuveLabel,
+      categorie_label: categorieLabel,
+      rows,
+      club_totals: clubTotals,
+    };
+
+    const res = await fetch("http://localhost:5000/api/ocrx/export_pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const fn = `resultats_${(championshipStr || "championnat").replace(/[^A-Za-z0-9_-]+/g, "_")}.pdf`;
+    a.download = fn;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    setError(e.message || "Export PDF échoué");
+  }
+};
+
   const analyzeDisabled =
     !file || uploading || !selectedEpreuveId || !selectedCategorieId;
 
@@ -185,13 +242,32 @@ export default function OCRUploader() {
       <h3 className="mb-3 text-dark fw-bold">Résultats OCR Natation</h3>
 
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+        {/* CHAMPIONNAT : choisir existant OU saisir manuellement */}
+        <SearchableDropdown
+          title={championnatLabel}
+          items={championnatsList}
+          onSelect={handlePickChampionnat}
+          formatItem={(c) => `${c.nom} (${c.saison}) ${c.datedeb} - ${c.datefin}`}
+        />
+        <Form.Control
+          placeholder="ou saisir un nom de championnat…"
+          value={champName}
+          onChange={(e) => { setChampName(e.target.value); if (selectedChampionnat) setSelectedChampionnat(null); }}
+          style={{ maxWidth: 340 }}
+        />
+        {(selectedChampionnat || champName) && (
+          <Button variant="outline-secondary" size="sm" onClick={clearChampionnatSelection}>
+            Effacer
+          </Button>
+        )}
+
+        {/* Catégorie & Épreuve */}
         <SearchableDropdown
           title={categorieLabel}
           items={categoriesList}
           onSelect={(c) => setSelectedCategorie(c)}
           formatItem={(c) => c.nom}
         />
-
         <SearchableDropdown
           title={epreuveLabel}
           items={epreuvesList}
@@ -233,6 +309,14 @@ export default function OCRUploader() {
             Ajouter une autre image
           </Button>
         )}
+
+        <Button
+          variant="outline-dark"
+          onClick={handleDownloadPDF}
+          disabled={rows.length === 0}
+        >
+          Télécharger PDF
+        </Button>
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -258,42 +342,36 @@ export default function OCRUploader() {
               {rows.map((r, i) => (
                 <tr key={i} className={r?.non_tunisien ? "table-warning" : ""}>
                   <td className="fw-bold">{r.place ?? i + 1}</td>
-
                   <td>
                     <Form.Control
                       value={r.nom || ""}
                       onChange={(e) => updateRow(i, "nom", e.target.value)}
                     />
                   </td>
-
                   <td>
                     <Form.Control
                       value={r.prenom || ""}
                       onChange={(e) => updateRow(i, "prenom", e.target.value)}
                     />
                   </td>
-
                   <td>
                     <Form.Control
                       value={r.club_name || ""}
                       onChange={(e) => updateRow(i, "club_name", e.target.value)}
                     />
                   </td>
-
                   <td>
                     <Form.Control
                       value={r.nationalite || "TUN"}
                       onChange={(e) => updateRow(i, "nationalite", e.target.value)}
                     />
                   </td>
-
                   <td>
                     <Form.Control
                       value={r.temps || ""}
                       onChange={(e) => updateRow(i, "temps", e.target.value)}
                     />
                   </td>
-
                   <td>
                     <Form.Control
                       type="number"
@@ -301,13 +379,10 @@ export default function OCRUploader() {
                       onChange={(e) => updateRow(i, "points", e.target.value)}
                     />
                   </td>
-
                   <td className={r?.found_in_db ? "text-success" : "text-danger"}>
                     {r?.match_score ?? 0}%
                   </td>
-
                   <td>{r?.eligible_points ? "Oui" : "Non"}</td>
-
                   <td>
                     <Button variant="success" size="sm" onClick={() => addRowAfter(i)}>
                       <FaPlus />
