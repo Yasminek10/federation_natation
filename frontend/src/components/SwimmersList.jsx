@@ -69,7 +69,14 @@ export default function SwimmersList({ user }) {
         {club && (
           <div className="container py-4">
             <Card className="shadow-sm border-0 mb-4 rounded-3">
-              <Card.Body>
+              <Card.Body
+                className="rounded-3"
+                style={{
+                  background: "#ffffff",
+                  background:
+                    "linear-gradient(14deg,rgba(255, 255, 255, 1) 0%, rgba(230, 245, 255, 1) 100%)",
+                }}
+              >
                 <Row className="align-items-center">
                   <Col xs="auto">
                     {club.logo ? (
@@ -85,7 +92,7 @@ export default function SwimmersList({ user }) {
                           width: 90,
                           height: 90,
                           borderRadius: "50%",
-                          backgroundColor: "#0d6efd",
+                          backgroundColor: "#0e3e84dd",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -101,7 +108,9 @@ export default function SwimmersList({ user }) {
                   </Col>
 
                   <Col>
-                    <h3 className="fw-bold mb-1 text-primary">{club.nom}</h3>
+                    <h3 className="fw-bold mb-1" style={{ color: "#0e3e84dd" }}>
+                      {club.nom}
+                    </h3>
                     <div className="d-flex gap-4 small text-secondary fw-semibold">
                       <i className="bi bi-people-fill"></i> {swimmers.length}{" "}
                       Nageurs
@@ -174,9 +183,14 @@ export default function SwimmersList({ user }) {
                 {currentItems.length > 0 ? (
                   currentItems.map((s) => (
                     <tr key={s.id}>
-                      <td className="fw-semibold">
-                        {s.nom} {s.prenom}
-                      </td>
+                    <td
+  className="fw-semibold"
+  style={{ cursor: "pointer", color: "#0e3e84" }}
+  onClick={() => navigate(`/nageurs/${s.id}`)}
+>
+  {s.nom} {s.prenom}
+</td>
+
                       <td>{s.birth_year}</td>
                       <td>
                         <Badge bg="secondary" pill>
@@ -205,55 +219,54 @@ export default function SwimmersList({ user }) {
             </Table>
 
             {/* Pagination */}
-       {/* Pagination améliorée */}
-{totalPages > 1 && (
-  <Pagination className="justify-content-center my-3 flex-wrap">
-    {/* Bouton Précédent */}
-    <Pagination.Prev
-      disabled={currentPage === 1}
-      onClick={() => handlePageChange(currentPage - 1)}
-    >
-      ←
-    </Pagination.Prev>
+            {/* Pagination améliorée */}
+            {totalPages > 1 && (
+              <Pagination className="justify-content-center my-3 flex-wrap">
+                {/* Bouton Précédent */}
+                <Pagination.Prev
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                >
+                  ←
+                </Pagination.Prev>
 
-    {/* Pages */}
-    {[...Array(totalPages)].map((_, index) => {
-      const page = index + 1;
+                {/* Pages */}
+                {[...Array(totalPages)].map((_, index) => {
+                  const page = index + 1;
 
-      // ✅ On limite l’affichage à max 5 pages visibles
-      if (
-        page === 1 ||
-        page === totalPages ||
-        (page >= currentPage - 1 && page <= currentPage + 1)
-      ) {
-        return (
-          <Pagination.Item
-            key={page}
-            active={page === currentPage}
-            onClick={() => handlePageChange(page)}
-          >
-            {page}
-          </Pagination.Item>
-        );
-      } else if (
-        page === currentPage - 2 ||
-        page === currentPage + 2
-      ) {
-        return <Pagination.Ellipsis key={page} disabled />;
-      }
-      return null;
-    })}
+                  // ✅ On limite l’affichage à max 5 pages visibles
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <Pagination.Item
+                        key={page}
+                        active={page === currentPage}
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </Pagination.Item>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return <Pagination.Ellipsis key={page} disabled />;
+                  }
+                  return null;
+                })}
 
-    {/* Bouton Suivant */}
-    <Pagination.Next
-      disabled={currentPage === totalPages}
-      onClick={() => handlePageChange(currentPage + 1)}
-    >
-      →
-    </Pagination.Next>
-  </Pagination>
-)}
-
+                {/* Bouton Suivant */}
+                <Pagination.Next
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                >
+                  →
+                </Pagination.Next>
+              </Pagination>
+            )}
           </Card>
         </div>
       </div>

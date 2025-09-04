@@ -24,9 +24,9 @@ export default function Navbar_Home({ user }) {
       <nav className={`nav-links ${menuOpen ? "active" : ""}`}>
         <ul>
           <li>
-            <a href="#accueil" onClick={() => setMenuOpen(false)}>
+            <Link to="/home" onClick={() => setMenuOpen(false)}>
               Accueil
-            </a>
+            </Link>
           </li>
           <li>
             <Link to="/nageurs" onClick={() => setMenuOpen(false)}>

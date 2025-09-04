@@ -20,6 +20,7 @@ from categorie import categories_bp
 from nageurs import nageurs_bp
 from championnats import champ_bp
 from result_api import results_yass_bp
+from nageurs import nageursDetails_bp  # ← import nageurs blueprint
 
 load_dotenv()
 
@@ -76,6 +77,7 @@ def create_app():
     app.register_blueprint(account_bp)
     app.register_blueprint(users_admin_bp)
     app.register_blueprint(nageurs_bp)
+    app.register_blueprint(nageursDetails_bp)  # ← register nageursDetails blueprint
 
     app.register_blueprint(champ_bp)
 

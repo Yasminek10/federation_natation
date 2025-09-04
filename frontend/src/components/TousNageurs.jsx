@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { Container, Row, Col, Card, Form, Pagination } from "react-bootstrap";
 import axios from "axios";
 import Navbar_Home from "./Navbar_Home";
 export default function TousNageurs({ user }) {
   const [nageurs, setNageurs] = useState([]);
   const [filteredNageurs, setFilteredNageurs] = useState([]);
+  const navigate = useNavigate();
 
   // Filtres
   const [searchName, setSearchName] = useState("");
@@ -239,9 +242,14 @@ export default function TousNageurs({ user }) {
             <Col key={n.id}>
               <Card className="shadow-sm border-0 rounded-4 h-100 p-2">
                 <Card.Body>
-                  <Card.Title className="fw-bold text-uppercase">
-                    {n.prenom} {n.nom}
-                  </Card.Title>
+                 <Card.Title
+  className="fw-bold text-uppercase"
+  style={{ cursor: "pointer", color: "#0e3e84" }}
+  onClick={() => navigate(`/nageurs/${n.id}`)}
+>
+  {n.prenom} {n.nom}
+</Card.Title>
+
                   <p>
                     <strong>Date Naissance:</strong> {n.birth_year}
                   </p>
