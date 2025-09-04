@@ -205,19 +205,55 @@ export default function SwimmersList({ user }) {
             </Table>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <Pagination className="justify-content-center my-3">
-                {[...Array(totalPages)].map((_, index) => (
-                  <Pagination.Item
-                    key={index + 1}
-                    active={index + 1 === currentPage}
-                    onClick={() => handlePageChange(index + 1)}
-                  >
-                    {index + 1}
-                  </Pagination.Item>
-                ))}
-              </Pagination>
-            )}
+       {/* Pagination améliorée */}
+{totalPages > 1 && (
+  <Pagination className="justify-content-center my-3 flex-wrap">
+    {/* Bouton Précédent */}
+    <Pagination.Prev
+      disabled={currentPage === 1}
+      onClick={() => handlePageChange(currentPage - 1)}
+    >
+      ←
+    </Pagination.Prev>
+
+    {/* Pages */}
+    {[...Array(totalPages)].map((_, index) => {
+      const page = index + 1;
+
+      // ✅ On limite l’affichage à max 5 pages visibles
+      if (
+        page === 1 ||
+        page === totalPages ||
+        (page >= currentPage - 1 && page <= currentPage + 1)
+      ) {
+        return (
+          <Pagination.Item
+            key={page}
+            active={page === currentPage}
+            onClick={() => handlePageChange(page)}
+          >
+            {page}
+          </Pagination.Item>
+        );
+      } else if (
+        page === currentPage - 2 ||
+        page === currentPage + 2
+      ) {
+        return <Pagination.Ellipsis key={page} disabled />;
+      }
+      return null;
+    })}
+
+    {/* Bouton Suivant */}
+    <Pagination.Next
+      disabled={currentPage === totalPages}
+      onClick={() => handlePageChange(currentPage + 1)}
+    >
+      →
+    </Pagination.Next>
+  </Pagination>
+)}
+
           </Card>
         </div>
       </div>
