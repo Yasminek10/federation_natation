@@ -4,8 +4,9 @@ import { Container, Table, Form, Card, Row, Col, Spinner } from "react-bootstrap
 import { useParams } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import "../styles/results.css"; // <-- custom styles
+import Navbar_Home from "../components/Navbar_Home";
 
-function Resultats() {
+function Resultats({ user }) {
   const { epreuveId } = useParams();
   const [resultats, setResultats] = useState([]);
   const [filterClub, setFilterClub] = useState("");
@@ -50,6 +51,9 @@ function Resultats() {
   }
 
   return (
+    <div>
+      {/* ===== Navbar ===== */}
+      <Navbar_Home user={user} />
     <Container className="mt-4">
       <h2 className="text-center mb-4"> Résultats de l'épreuve</h2>
 
@@ -139,6 +143,7 @@ function Resultats() {
         </Card.Body>
       </Card>
     </Container>
+    </div>
   );
 }
 

@@ -44,6 +44,7 @@ export default function App() {
         element={<SwimmerDetails user={currentUser} />}
       />
 
+
       <Route
         path="/clubs/:clubId/nageurs"
         element={<SwimmersList user={currentUser} />}
@@ -51,6 +52,12 @@ export default function App() {
       <Route path="/championnats" element={<Championnats />} />
       <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
       <Route path="/epreuves/:epreuveId/resultats" element={<Resultats />} />
+
+      <Route path="/clubs/:clubId/nageurs" element={<SwimmersList user={currentUser}/>} />
+      <Route path="/championnats" element={<Championnats user={currentUser}/>} />
+      <Route path="/championnats/:champId/epreuves" element={<Epreuves user={currentUser}/>} />
+      <Route path="/epreuves/:epreuveId/resultats" element={<Resultats user={currentUser}/>} />
+
 
       {/* /login accessible seulement si NON connecté */}
       <Route
