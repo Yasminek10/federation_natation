@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Button } from "react-bootstrap";
 import { useNavigate, Link } from "react-router-dom";
-import logo from "../assets/logo-ftn.png";
-import flag from "../assets/drapeau-tunisie.png";
+import Navbar_Home from "./Navbar_Home";
 import "../styles/ClubsList.css";
 
 export default function ClubsList({ user }) {
@@ -38,45 +37,7 @@ export default function ClubsList({ user }) {
   return (
     <div>
       {/* ===== Navbar ===== */}
-      <header className="navbar">
-        <div className="logo-container">
-          <img
-            src={logo}
-            alt="Fédération Tunisienne de Natation"
-            className="logo"
-          />
-          <h3>Fédération Tunisienne de Natation</h3>
-        </div>
-        <nav>
-          <ul>
-            <li>
-              <a href="/home">Accueil</a>
-            </li>
-            <li>
-              <Link to="/nageurs">Nageurs</Link>
-            </li>
-            <li>
-              <Link to="/clubs">Clubs</Link>
-            </li>
-            <li>
-              <a href="#resultats">Résultats</a>
-            </li>
-
-            {/* Role-based navigation */}
-            {user?.role === "admin" && (
-              <li>
-                <Link to="/admin-dashboard">Admin Dashboard</Link>
-              </li>
-            )}
-            {user?.role === "coach" && (
-              <li>
-                <Link to="/coach-dashboard">Coach Dashboard</Link>
-              </li>
-            )}
-          </ul>
-        </nav>
-        <img src={flag} alt="Drapeau tunisien" className="flag" />
-      </header>
+      <Navbar_Home user={user} />
       <div className="container mt-5">
         <h3 className="mb-2 text-dark fw-bold">Liste des clubs</h3>
         <p className="text-muted mb-4">

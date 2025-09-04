@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "../styles/home.css";
-import logo from "../assets/logo-ftn.png";
-import flag from "../assets/drapeau-tunisie.png";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import Navbar_Home from "../components/Navbar_Home"; // ✅ Import
 import ClubsList from "../components/Clubs";
 
 function Home() {
@@ -10,57 +9,15 @@ function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Récupérer user depuis localStorage (sauvegardé après Login)
     const savedUser = JSON.parse(localStorage.getItem("user"));
     setUser(savedUser);
     console.log("Utilisateur connecté :", savedUser);
   }, []);
 
-  const [open, setOpen] = useState(false);
   return (
     <div className="home">
       {/* ===== Navbar ===== */}
-      <header className="navbar">
-        <div className="logo-container">
-          <img
-            src={logo}
-            alt="Fédération Tunisienne de Natation"
-            className="logo"
-          />
-          <h3>Fédération Tunisienne de Natation</h3>
-        </div>
-        <nav>
-          <ul>
-            <li>
-              <a href="#accueil">Accueil</a>
-            </li>
-            <li>
-              <Link to="/nageurs">Nageurs</Link>
-            </li>
-            <li>
-              <Link to="/clubs">Clubs</Link>
-            </li>
-            <li>
-              <Link to="/championnats">Championnat</Link>
-            </li>
-
-            {/* Role-based navigation */}
-            {user?.role === "admin" && (
-              <li>
-                <Link to="/admin-dashboard">Admin Dashboard</Link>
-              </li>
-            )}
-            {user?.role === "coach" && (
-              <li>
-                <Link to="/coach-dashboard">Coach Dashboard</Link>
-              </li>
-            )}
-          </ul>
-        </nav>
-  <img src={flag} alt="Drapeau tunisien" className="flag" />
-
-  
-</header>
+      <Navbar_Home user={user} />
 
       {/* ===== Bannière ===== */}
       <section className="banner">
@@ -73,7 +30,6 @@ function Home() {
           profils des athlètes et suivez les résultats.
         </p>
         <div className="btn-container">
-          {/* Bouton qui redirige vers le bon dashboard */}
           {user?.role === "admin" ? (
             <button
               className="connect-btn"
