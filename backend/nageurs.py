@@ -51,16 +51,33 @@ def get_nageur_details(nageur_id):
 
     # --- Fonctions utilitaires ---
     def temps_to_seconds(temps_str):
-        """Convertit un temps 'mm:ss.xx' ou 'ss.xx' en secondes float."""
+        """Convertit un temps 'mm:ss.xx' ou 'ss.xx' en secondes float.
+           Retourne None si le temps est invalide (ex: DSQ, n.d., Frf, Forfait...).
+        """
         if not temps_str:
             return None
-        if ":" in temps_str:
-            minutes, secondes = temps_str.split(":")
-            return float(minutes) * 60 + float(secondes)
-        return float(temps_str)
+
+        # Normaliser la chaîne
+        temps_str = temps_str.strip().lower()
+
+        # Cas non valides
+        invalid_values = ["dsq", "disq", "disqualifié", "n.d.", "nd", "frf", "forfait"]
+        if any(bad in temps_str for bad in invalid_values):
+            return None
+
+        # Conversion si format correct
+        try:
+            if ":" in temps_str:
+                minutes, secondes = temps_str.split(":")
+                return float(minutes) * 60 + float(secondes)
+            return float(temps_str)
+        except ValueError:
+            return None
 
     def seconds_to_temps(seconds):
         """Convertit des secondes float en format 'mm:ss.xx' ou 'ss.xx'."""
+        if seconds is None:
+            return None
         if seconds >= 60:
             minutes = int(seconds // 60)
             sec = seconds % 60
@@ -90,19 +107,20 @@ def get_nageur_details(nageur_id):
         epreuve = cec.epreuve
         categorie = cec.categorie
 
-        # Convertir le temps pour les analyses
-        if base.temps:
-            sec = temps_to_seconds(base.temps)
+        # Conversion du temps
+        sec = temps_to_seconds(base.temps)
+        if sec is not None:
             temps_valides_sec.append(sec)
 
-        points.append(base.points)
+        if base.points:
+            points.append(base.points)
 
         historiques.append({
             "championnat": championnat.nom,
             "saison": championnat.saison,
             "epreuve": f"{epreuve.distance}m {epreuve.nage} ({epreuve.genre})",
             "categorie": categorie.nom,
-            "temps": base.temps,
+            "temps": base.temps,  # garder la valeur brute (ex: DSQ, n.d.)
             "points": base.points,
             "place": base.place,
             "statut": base.statut,
