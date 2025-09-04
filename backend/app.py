@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from db import db
 from flask_sqlalchemy import SQLAlchemy
 from minimas import minimas_bp  
-from ocr import ocr_bp
+#from ocr import ocr_bp
 from championnats import championnats_bp
 from epreuves import epreuves_bp
 from ingest import ingest_bp
@@ -20,6 +20,7 @@ from categorie import categories_bp
 from nageurs import nageurs_bp
 from championnats import champ_bp
 from result_api import results_yass_bp
+from ocr_blueprint import ocr_bp
 from nageurs import nageursDetails_bp  # ← import nageurs blueprint
 
 load_dotenv()
@@ -39,6 +40,7 @@ def create_app():
     
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
+
     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:yassmin@localhost:5432/NatationDB'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
