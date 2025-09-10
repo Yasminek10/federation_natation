@@ -32,11 +32,11 @@ NAGE_MAP = {
 CAT_TOKENS = {
     "POUSSIN": "Poussin", "POUSSINS": "Poussin",
     "MINIME": "Minimes", "MINIMES": "Minimes",
-    "BENJAMIN": "Benjamins", "BENJAMINS": "Benjamins",
+    "BENJAMIN": "Benjamins", "BENJAMINS": "Benjamins", "BENJAMENS": "Benjamins",  # ⬅️
     "CADET": "Cadets", "CADETS": "Cadets",
     "JUNIOR": "Juniors/Seniors", "JUNIORS": "Juniors/Seniors",
     "SENIOR": "Juniors/Seniors", "SENIORS": "Juniors/Seniors",
-    "SUNIORS": "Juniors/Seniors",   # coquille fréquente
+    "SUNIORS": "Juniors/Seniors",
     "TC": "TC",
 }
 
@@ -235,6 +235,30 @@ EVENT_RX = re.compile(
     re.IGNORECASE | re.VERBOSE
 )
 DATE_RX = re.compile(r"(\d{2}/\d{2}/\d{4}).*?(\d{2}/\d{2}/\d{4})")
+TC_RX = re.compile(
+    r"(?:\bT\s*\.?\s*C\s*\.?\b|\bTOUTES?\s+CAT[ÉE]GOR(?:IE|IES)\b)",
+    re.IGNORECASE
+)
+
+def default_category_from_title(title: str) -> str | None:
+    """
+    - Si 'TC' (ou 'TOUTES CATEGORIE(S)') est présent dans le titre -> 'TC'
+    - Sinon, si exactement UNE seule catégorie explicite (Benjamins, Minimes, …) -> celle-ci
+    - Sinon -> None (et on retombera plus loin sur DEFAULT_CAT = 'TC')
+    """
+    t = clean_text(title)
+    u = t.upper()
+
+    if TC_RX.search(u):
+        return "TC"
+
+    hits = [CAT_TOKENS[k] for k in CAT_TOKENS if re.search(rf"\b{k}\b", u)]
+    hits = list({h for h in hits if h})
+    hits_non_tc = [h for h in hits if h != "TC"]
+    if len(hits_non_tc) == 1:
+        return hits_non_tc[0]
+    return None
+
 
 def derive_saison_from_name(nom: str) -> str | None:
     t = clean_text(nom).upper()
@@ -268,9 +292,10 @@ def parse_header_info(soup: BeautifulSoup):
             lieu = clean_text(parts[1]) if len(parts) >= 2 else None
             bassin = guess_bassin(parts[2]) if len(parts) >= 3 else None
 
-            saison = derive_saison_from_name(nom_strict)
-            if not saison:
-                saison = derive_saison_from_dates(d1, d2)  # <-- fallback par la date
+            saison = derive_saison_from_name(nom_strict) or derive_saison_from_dates(d1, d2)
+
+            # ⬇️ utilise tout 'left' pour ne pas rater "M/C J/S TC" après un tiret
+            default_cat = default_category_from_title(left)
 
             return {
                 "nom": nom_strict,
@@ -278,7 +303,8 @@ def parse_header_info(soup: BeautifulSoup):
                 "bassin": bassin,
                 "datedeb": d1,
                 "datefin": d2,
-                "saison": saison,  # 'ETE' | 'HIVER'
+                "saison": saison,
+                "default_category": default_cat,
             }
     return None
 
@@ -315,54 +341,39 @@ def _parse_event_text(txt: str):
     return {"is_relay": False, "legs_count": None, "distance": dist, "nage": nage, "genre": genre, "raw": t}
 
 
-def collect_events_with_tables(soup: BeautifulSoup):
-    """
-    Regroupe toutes les épreuves d'une page :
-      [
-        { "ev": {...}, "sections": [ (categorie, <table>), ... ] },
-        ...
-      ]
-    On parcourt <body> séquentiellement : dès qu'on voit un titre d'épreuve,
-    on ouvre un groupe ; on mémorise la dernière catégorie rencontrée ;
-    chaque <table> de résultats est poussée dans l'épreuve courante.
-    """
+def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = None):
     events = []
-    curr_event = None
-    curr_cat = None
+    curr_event, curr_cat = None, None
+    fallback_cat = default_cat or DEFAULT_CAT   # <— use page default if provided
 
     for node in soup.body.descendants:
         name = getattr(node, "name", None)
-
         if name in ("font", "b", "u", "p"):
             txt = clean_text(getattr(node, "get_text", lambda *a, **k: "")(" ", strip=True))
-            # 1) Nouveau titre d'épreuve ?
             ev = _parse_event_text(txt)
             if ev:
                 curr_event = {"ev": ev, "sections": []}
                 events.append(curr_event)
                 curr_cat = None
                 continue
-            # 2) Changement de catégorie ?
             cat = detect_category(txt or "")
             if cat:
                 curr_cat = cat
                 continue
 
         if name == "table":
-            # Est-ce une table de résultats ?
             headers = [clean_text(td.get_text()) for td in node.find_all("td")]
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
                 if curr_event is not None:
-                    cat_label = curr_cat or DEFAULT_CAT
+                    cat_label = curr_cat or fallback_cat   # <— here
                     curr_event["sections"].append((cat_label, node))
 
-    # Ne garder que les épreuves ayant au moins une table
     return [e for e in events if e["sections"]]
 
 
-def iter_category_tables(soup: BeautifulSoup):
-    """Associe chaque <table> de résultats à la dernière catégorie vue dans le flux du <body>."""
+def iter_category_tables(soup: BeautifulSoup, default_cat: str | None = None):
     curr_cat = None
+    fallback_cat = default_cat or DEFAULT_CAT
     for node in soup.body.descendants:
         if getattr(node, "name", None) in ("font", "b", "u", "p"):
             cat = detect_category(node.get_text() or "")
@@ -371,7 +382,7 @@ def iter_category_tables(soup: BeautifulSoup):
         if getattr(node, "name", None) == "table":
             headers = [clean_text(td.get_text()) for td in node.find_all("td")]
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
-                yield (curr_cat or DEFAULT_CAT), node
+                yield (curr_cat or fallback_cat), node   
 
 # --- entêtes robustes ---
 
@@ -601,12 +612,12 @@ def ingest_url():
     champ = ensure_championnat(meta["nom"], meta["datedeb"], meta["datefin"], meta["lieu"], meta["bassin"], meta.get("saison"))
 
     # 2) Épreuves (multi) -> fallback single si nécessaire
-    ev_groups = collect_events_with_tables(soup)
+    ev_groups = collect_events_with_tables(soup, default_cat=meta.get("default_category"))
     if not ev_groups:
         single = parse_event_heading(soup)
         if not single:
             return jsonify({"status": "error", "message": "Aucune épreuve détectée"}), 422
-        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup))}]
+        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup, default_cat=meta.get("default_category")))}]
 
     # 3) Construire la liste de tout ce qu'on va insérer (CEC par épreuve×catégorie)
     pending_items = []   # [{cec_id, table, ev}, ...]
@@ -845,12 +856,12 @@ def ingest_preview():
     if not meta:
         return jsonify({"status": "error", "message": "En-tête championnat introuvable"}), 422
 
-    ev_groups = collect_events_with_tables(soup)
+    ev_groups = collect_events_with_tables(soup, default_cat=meta.get("default_category"))
     if not ev_groups:
         single = parse_event_heading(soup)
         if not single:
             return jsonify({"status": "error", "message": "Aucune épreuve détectée"}), 422
-        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup))}]
+        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup, default_cat=meta.get("default_category")))}]
 
     events_preview = []
     cats_seen = []
