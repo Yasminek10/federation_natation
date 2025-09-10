@@ -32,7 +32,6 @@ class Nageur(db.Model):
     # gestion
     eligible_points = db.Column(db.Boolean, nullable=False, server_default="true")
     
-
     __table_args__ = (
         CheckConstraint("birth_year IS NULL OR birth_year BETWEEN 1900 AND 2100", name="ck_birth_year"),
         # Si tu veux éviter les doublons d'identité (sensible à la casse selon la collation) :
@@ -42,6 +41,12 @@ class Nageur(db.Model):
     club = relationship("Club", back_populates="nageurs")
     # résultats individuels via la table enfant
     resultats_individuels = relationship("ResultatIndividuel", back_populates="nageur", cascade="all, delete-orphan")
+      # relation avec ses participations aux équipes
+    equipes_membre = relationship(
+        "EquipeMembre",
+        back_populates="nageur",
+        cascade="all, delete-orphan"
+    )
 
 
 class Categorie(db.Model):
