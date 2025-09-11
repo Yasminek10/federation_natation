@@ -463,27 +463,8 @@ def seconds_to_str(x: float) -> str:
     s = x - 60 * m
     return f"{m}:{s:05.2f}" if m else f"{s:.2f}"
 
-def compute_leg_splits(legs_count: int, dist_per_leg: int, cumul_list: list[str], total_time: str) -> list[str]:
-    incr = 50  # passages listés tous les 50m sur tes pages
-    def get_cumul_time_at(Dm):
-        idx = int(Dm / incr)  # 100 -> 2, 200 -> 4, ...
-        return time_to_seconds(cumul_list[idx - 1]) if 1 <= idx <= len(cumul_list) else None
 
-    tot_sec = time_to_seconds(total_time)
-    targets = [dist_per_leg * i for i in range(1, legs_count + 1)]
-    rep_sec = [get_cumul_time_at(D) for D in targets]
 
-    splits, prev = [], 0.0
-    for i, val in enumerate(rep_sec):
-        if val is None:
-            if i == legs_count - 1 and tot_sec is not None:
-                val = tot_sec
-            else:
-                splits.append("")
-                continue
-        splits.append(seconds_to_str(val - prev))
-        prev = val
-    return splits
 
 def parse_relay_groups(table, legs_count: int):
     """Regroupe les lignes en équipes (place -> recap + 3/9 lignes membres)."""
@@ -523,38 +504,68 @@ def parse_relay_groups(table, legs_count: int):
     return [t for t in teams if len(t["members"]) == legs_count]
 
 
-def compute_leg_splits_50_100(legs_count: int, dist_per_leg: int, cumul_list: list[str], total_time: str):
+
+
+# --- Remplace entièrement cette fonction ---
+def compute_leg_50_splits_for_store(
+    legs_count: int,
+    dist_per_leg: int,
+    cumul_list: list[str],
+    total_time: str | None
+) -> list[str]:
     """
-    Retourne une liste de dicts [{p50:'..', p100:'..'}, ...] pour chaque nageur.
-    Hypothèses : dist_per_leg=100, cumul_list = temps cumulés tous les 50m (50,100,150,...),
-    total_time = temps final de l'équipe.
-    p100 du dernier nageur = total - cumul(300).
+    Retourne ["p50[/p50b]", ...] (longueur = legs_count).
+    Règles :
+      - Segments standards = différence de passages adjacents si présents et croissants.
+      - 4e relayeur : 2e 50 = total - (dernier passage < total).
+      - On ne dérive jamais d'autres segments à partir du total.
     """
-    cumul_sec = [time_to_seconds(t) for t in cumul_list]  # [50,100,150,...]
-    total_sec = time_to_seconds(total_time)
+    if not legs_count or not dist_per_leg:
+        return []
+
+    per50 = max(1, dist_per_leg // 50)             # 100 -> 2
+    sec = [time_to_seconds(x) for x in cumul_list]  # [50,100,150,...]
+    tot = time_to_seconds(total_time or "")
+
+    def fmt(x):
+        return seconds_to_str(x) if x is not None else ""
+
     out = []
+    for j in range(legs_count):                     # 0..3
+        start_idx = j * per50                       # 0,2,4,6 pour 4x100
+        segs = []
+        prev = 0.0 if start_idx == 0 else (sec[start_idx - 1] if start_idx - 1 < len(sec) else None)
 
-    for j in range(legs_count):  # j = 0..3
-        base = 2 * j                  # indices 50,100,150,200, ...
-        prev = cumul_sec[base - 1] if base - 1 >= 0 and base - 1 < len(cumul_sec) else 0.0
+        for k in range(per50):                      # k=0 (50), k=1 (100)
+            cur_idx = start_idx + k                 # 0/1 ; 2/3 ; 4/5 ; 6/7(=absent)
+            cur = sec[cur_idx] if cur_idx < len(sec) else None
 
-        s50 = None
-        if base < len(cumul_sec) and cumul_sec[base] is not None and prev is not None:
-            s50 = cumul_sec[base] - prev
+            # Cas général: différence si croissant strict
+            if prev is not None and cur is not None and cur > prev:
+                segs.append(fmt(cur - prev))
+                prev = cur
+                continue
 
-        if j < legs_count - 1:
-            s100 = None
-            if base + 1 < len(cumul_sec) and cumul_sec[base + 1] is not None and prev is not None:
-                s100 = cumul_sec[base + 1] - prev
-        else:
-            # Dernier nageur : 100 = total - cumul(300)
-            s100 = (total_sec - prev) if (total_sec is not None and prev is not None) else None
+            # Fallback UNIQUEMENT pour le DERNIER segment du DERNIER relayeur
+            if j == legs_count - 1 and k == per50 - 1 and tot is not None:
+                # dernier passage valide strictement < total (350 de préférence)
+                last_valid = None
+                for x in sec:
+                    if x is not None and x < tot and (last_valid is None or x > last_valid):
+                        last_valid = x
+                if last_valid is not None and tot > last_valid:
+                    segs.append(fmt(tot - last_valid))
+                    prev = tot
+                    continue
 
-        out.append({
-            "p50": seconds_to_str(s50) if s50 is not None else "",
-            "p100": seconds_to_str(s100) if s100 is not None else "",
-        })
+            # sinon: segment inconnu
+            segs.append("")
+            prev = cur
+
+        out.append("/".join(segs))
     return out
+
+
 
 # ==================
 # Endpoint principal
@@ -661,7 +672,7 @@ def ingest_url():
                 eq = ensure_equipe(cec_id, club.id_club)
 
                 cumul = extract_cumulative_passages(team.get("passages", ""))
-                splits_50_100 = compute_leg_splits_50_100(legs, dist_per_leg, cumul, team.get("time", ""))
+                leg_50_splits = compute_leg_50_splits_for_store(legs, dist_per_leg, cumul, team.get("time", ""))
 
                 for idx, mem in enumerate(team.get("members", []), start=1):
                     sw_key = swimmer_key(mem.get("fullname", ""), mem.get("year", ""), team.get("club", ""))
@@ -669,12 +680,12 @@ def ingest_url():
                     elig = compute_eligible_for_insert(mem.get("nation"), approvals, sw_key, existing)
                     nageur = ensure_nageur(mem.get("fullname", ""), mem.get("year", ""), club, mem.get("nation"), eligible_points=elig)
 
-                    sp = splits_50_100[idx-1] if idx-1 < len(splits_50_100) else {"p50": "", "p100": ""}
+                    st = leg_50_splits[idx - 1] if (idx - 1) < len(leg_50_splits) else ""
                     db.session.add(EquipeMembre(
                         equipe_id=eq.equipe_id,
                         nageur_id=nageur.id_nageur,
                         leg_order=idx,
-                        split_time=f"{sp['p50']}/{sp['p100']}"
+                        split_time=st
                     ))
 
                 place, statut = parse_place_and_statut(team.get("place_txt", ""))

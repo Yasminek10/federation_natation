@@ -152,7 +152,7 @@ export default function SwimmerDetails({ user }) {
         )}
         {activeTab === "relais" && <RelayResults relais={relais} />}
         {activeTab === "medails" && (
-          <MedalsCount historique={historique} relais={relais} />
+          <MedalsCount historique={historique} relais={relais} medaillesTc={data.medailles_tc}/>
         )}
       </div>
     </div>
