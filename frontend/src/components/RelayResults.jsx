@@ -45,6 +45,8 @@ export default function RelayResults({ relais = [] }) {
                         <th>Épreuve</th>
                         <th>Catégorie</th>
                         <th>Club</th>
+                        <th>Ordre de passage</th>
+                        <th>Temps de passage</th>
                         <th>Temps total</th>
                         <th>Place</th>
                         <th>Statut</th>
@@ -60,6 +62,13 @@ export default function RelayResults({ relais = [] }) {
                             <Badge bg="secondary">{r.categorie}</Badge>
                           </td>
                           <td>{r.club}</td>
+                          <td>
+                            {r.leg_order || (r.role && (r.role.match(/\d+/)?.[0])) || "-"}
+                          </td> 
+                          <td>
+                            {r.split_50}
+                            {r.split_2nd_50 ? ` / ${r.split_2nd_50}` : ""}
+                          </td>
                           <td>{r.temps_total || "-"}</td>
                           <td>{r.place}</td>
                           <td>
