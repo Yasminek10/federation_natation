@@ -7,7 +7,7 @@ import "../styles/ClubsList.css";
 export default function ClubsList({ user }) {
   const [clubs, setClubs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const clubsPerPage = 6; // nombre de clubs par page
+  const clubsPerPage = 10; // nombre de clubs par page
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function ClubsList({ user }) {
             <Card
               key={club.id}
               className="club-card shadow-sm border-0"
-              onClick={() => navigate(`/clubs/${club.id}/nageurs`)}
+              onClick={() => navigate(`/clubs/${club.id}`)}
             >
               <Card.Body className="d-flex flex-column align-items-center justify-content-center">
                 <Card.Title className="text-center fw-bold">

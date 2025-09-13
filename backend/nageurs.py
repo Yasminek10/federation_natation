@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, jsonify
 from db import db, Nageur
-from system_date import get_categorie_from_birth_year
+from system_date import get_categorie_from_birth_year,extraire_nom_annee
 
 nageurs_bp = Blueprint("nageurs", __name__, url_prefix="/api/nageurs")
 nageursDetails_bp = Blueprint("nageursDetails", __name__, url_prefix="/api/nageursDetails")
@@ -74,15 +74,6 @@ def get_nageur_details(nageur_id):
             return f"{minutes}:{sec:05.2f}"
         else:
             return f"{seconds:.2f}"
-
-    def extraire_nom_annee(championnat):
-        nom_champ = championnat.nom if championnat.nom else "Inconnu"
-        try:
-            annee = championnat.datedeb.year
-        except Exception as e:
-            print("Erreur extraire_nom_annee:", e)
-            annee = "Inconnue"
-        return f"{nom_champ} ({annee})"
 
     # --- Infos basiques du nageur ---
     nageur_data = {

@@ -20,3 +20,13 @@ def get_categorie_from_birth_year(birth_year: int) -> str:
         return "Poussin"
     else:
         return "N/A"
+
+
+def extraire_nom_annee(championnat):
+    nom_champ = championnat.nom if championnat.nom else "Inconnu"
+    try:
+        annee = championnat.datedeb.year
+    except Exception as e:
+        print("Erreur extraire_nom_annee:", e)
+        annee = "Inconnue"
+    return f"{nom_champ} ({annee})"

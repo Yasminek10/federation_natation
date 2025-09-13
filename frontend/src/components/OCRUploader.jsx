@@ -323,75 +323,84 @@ const handleDownloadPDF = async () => {
 
       {rows.length > 0 && (
         <>
-          <Table bordered hover responsive className="mt-3 text-center align-middle">
-            <thead style={{ backgroundColor: "#2c3e50", color: "white" }}>
-              <tr>
-                <th style={{ width: 70 }}>Rang</th>
-                <th>Nom</th>
-                <th>Prénom</th>
-                <th>Club</th>
-                <th style={{ width: 90 }}>Nat.</th>
-                <th style={{ width: 120 }}>Temps</th>
-                <th style={{ width: 110 }}>Points</th>
-                <th style={{ width: 80 }}>Match</th>
-                <th style={{ width: 80 }}>Elig.</th>
-                <th style={{ width: 70 }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} className={r?.non_tunisien ? "table-warning" : ""}>
-                  <td className="fw-bold">{r.place ?? i + 1}</td>
-                  <td>
-                    <Form.Control
-                      value={r.nom || ""}
-                      onChange={(e) => updateRow(i, "nom", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      value={r.prenom || ""}
-                      onChange={(e) => updateRow(i, "prenom", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      value={r.club_name || ""}
-                      onChange={(e) => updateRow(i, "club_name", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      value={r.nationalite || "TUN"}
-                      onChange={(e) => updateRow(i, "nationalite", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      value={r.temps || ""}
-                      onChange={(e) => updateRow(i, "temps", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <Form.Control
-                      type="number"
-                      value={Number.isFinite(Number(r.points)) ? Number(r.points) : 0}
-                      onChange={(e) => updateRow(i, "points", e.target.value)}
-                    />
-                  </td>
-                  <td className={r?.found_in_db ? "text-success" : "text-danger"}>
-                    {r?.match_score ?? 0}%
-                  </td>
-                  <td>{r?.eligible_points ? "Oui" : "Non"}</td>
-                  <td>
-                    <Button variant="success" size="sm" onClick={() => addRowAfter(i)}>
-                      <FaPlus />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          <Table bordered hover responsive="sm" className="mt-3 text-center align-middle">
+  <thead style={{ backgroundColor: "#2c3e50", color: "white" }}>
+    <tr>
+      <th className="text-nowrap">Rang</th>
+      <th>Nom</th>
+      <th>Prénom</th>
+      <th className="d-none d-md-table-cell">Club</th>
+      <th className="text-nowrap">Nat.</th>
+      <th className="text-nowrap">Temps</th>
+      <th className="d-none d-sm-table-cell">Points</th>
+      <th className="d-none d-lg-table-cell">Match</th>
+      <th className="d-none d-lg-table-cell">Elig.</th>
+      <th className="text-nowrap">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows.map((r, i) => (
+      <tr key={i} className={r?.non_tunisien ? "table-warning" : ""}>
+        <td className="fw-bold">{r.place ?? i + 1}</td>
+        <td>
+          <Form.Control
+            value={r.nom || ""}
+            onChange={(e) => updateRow(i, "nom", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td>
+          <Form.Control
+            value={r.prenom || ""}
+            onChange={(e) => updateRow(i, "prenom", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td className="d-none d-md-table-cell">
+          <Form.Control
+            value={r.club_name || ""}
+            onChange={(e) => updateRow(i, "club_name", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td>
+          <Form.Control
+            value={r.nationalite || "TUN"}
+            onChange={(e) => updateRow(i, "nationalite", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td>
+          <Form.Control
+            value={r.temps || ""}
+            onChange={(e) => updateRow(i, "temps", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td className="d-none d-sm-table-cell">
+          <Form.Control
+            type="number"
+            value={Number.isFinite(Number(r.points)) ? Number(r.points) : 0}
+            onChange={(e) => updateRow(i, "points", e.target.value)}
+            size="sm"
+          />
+        </td>
+        <td className={`d-none d-lg-table-cell ${r?.found_in_db ? "text-success" : "text-danger"}`}>
+          {r?.match_score ?? 0}%
+        </td>
+        <td className="d-none d-lg-table-cell">
+          {r?.eligible_points ? "Oui" : "Non"}
+        </td>
+        <td>
+          <Button variant="success" size="sm" onClick={() => addRowAfter(i)}>
+            <FaPlus />
+          </Button>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</Table>
+
 
           {clubTotals.length > 0 && (
             <div className="mt-3">
