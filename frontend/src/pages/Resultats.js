@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import "../styles/results.css"; // <-- custom styles
 import Navbar_Home from "../components/Navbar_Home";
+import { Link } from "react-router-dom";
 
 function Resultats({ user }) {
   const { epreuveId } = useParams();
@@ -89,6 +90,13 @@ function Resultats({ user }) {
               ))}
             </Form.Select>
           </Col>
+          <Col>
+      <Link to={`/epreuves/${epreuveId}/cumul`}>
+  <button className="btn btn-primary">
+    Afficher le cumul des points
+  </button>
+</Link>
+    </Col>
         </Row>
       </Card>
 

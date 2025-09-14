@@ -4,6 +4,8 @@ import { Container, Card, ListGroup, Spinner } from "react-bootstrap";
 import { useParams, useNavigate } from "react-router-dom";
 import { Trophy } from "lucide-react"; // joli icône
 import Navbar_Home from "../components/Navbar_Home";
+import { Button } from "react-bootstrap";
+import { BarChart3 } from "lucide-react"; 
 
 function Epreuves({ user }) {
   const { champId } = useParams();
@@ -45,6 +47,7 @@ function Epreuves({ user }) {
               <Spinner animation="border" variant="primary" />
             </div>
           ) : epreuves.length > 0 ? (
+             <>
             <ListGroup variant="flush">
               {epreuves.map(e => (
                 <ListGroup.Item
@@ -62,6 +65,17 @@ function Epreuves({ user }) {
                 </ListGroup.Item>
               ))}
             </ListGroup>
+            {/* === Bouton Statistiques === */}
+      <div className="text-center mt-4">
+        <Button
+          variant="success"
+          className="px-4 py-2 fw-bold shadow-sm"
+          onClick={() => navigate("/statistiques")}
+        >
+          <BarChart3 size={20} className="me-2" />
+          Afficher les statistiques
+        </Button>
+      </div> </>
           ) : (
             <p className="text-center text-muted">
               Aucune épreuve disponible pour ce championnat.

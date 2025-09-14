@@ -31,13 +31,13 @@ function Championnats({ user }) {
     <div>
       {/* ===== Navbar ===== */}
       <Navbar_Home user={user} />
-    <Container className="mt-4">
+    <Container className="mt-4 justify-content-center">
       <h2 className="text-center mb-4">🏆 Liste des Championnats</h2>
       <Row className="g-4">
         {championnats.map(c => (
-          <Col key={c.id} xs={12} sm={6} md={4} lg={3}>
+          <Col key={c.id} xs={12} sm={6} md={4} lg={3} className="mx-auto">
             <Card
-              className="shadow-sm h-100 hover-card"
+              className="shadow-sm h-100 hover-card flex-fill"
               onClick={() => navigate(`/championnats/${c.id}/epreuves`)}
               style={{ cursor: "pointer", borderRadius: "12px" }}
             >
