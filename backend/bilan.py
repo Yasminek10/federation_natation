@@ -318,7 +318,7 @@ def _performances_club(champ: Championnat, prev: Championnat | None, categorie_i
 def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
     prev = _previous_champ_same_scope(champ, categorie.categorie_id)
 
-    # classements général & par nage/genre
+    # Classements
     rank_all = _club_rankings(champ, categorie.categorie_id)
     rank_by = _club_rankings_by_stroke_and_gender(champ, categorie.categorie_id)
     rank_by_grouped = {}
@@ -326,36 +326,36 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
         g = rank_by_grouped.setdefault(nage, {"Messieurs": [], "Dames": []})
         g[genre] = lst
 
-    # "Toutes les nages" (individuel + relais) et RELAIS only
     all_m, all_f = _pair_gender_rankings(champ, categorie.categorie_id, is_relay=None)
     relay_m, relay_f = _pair_gender_rankings(champ, categorie.categorie_id, is_relay=True)
 
-    # perfs du club (avec 'epr_id' pour minima)
+    # Perfs du club
     dames, messieurs = _performances_club(champ, prev, categorie.categorie_id, club.id_club)
 
-    # relais du club (AFFICHAGE sans doublage)
-    rel_rows = (db.session.query(ResultatBase, ResultatRelais, CEC, Epreuve)
-                .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
-                .join(CEC, CEC.cec_id == ResultatBase.cec_id)
-                .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
-                .filter(CEC.champ_id == champ.champ_id,
-                        CEC.categorie_id == categorie.categorie_id,
-                        ResultatBase.statut == "OK")
-                .join(Equipe, and_(Equipe.equipe_id == ResultatRelais.equipe_id,
-                                   Equipe.id_club == club.id_club))
-                .order_by(asc(ResultatBase.place))
-                .all())
-    relais = []
-    for base, _, _, epr in rel_rows:
-        relais.append({
-            "label": f"{epr.legs_count}x{epr.distance}m {epr.nage}",
-            "genre": epr.genre,
-            "temps": base.temps or "—",
-            "points": int(base.points or 0),
-            "place": base.place or "—",
-        })
+    # Relais du club
+    rel_rows = (
+        db.session.query(ResultatBase, ResultatRelais, CEC, Epreuve)
+        .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
+        .join(CEC, CEC.cec_id == ResultatBase.cec_id)
+        .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
+        .filter(
+            CEC.champ_id == champ.champ_id,
+            CEC.categorie_id == categorie.categorie_id,
+            ResultatBase.statut == "OK",
+        )
+        .join(Equipe, and_(Equipe.equipe_id == ResultatRelais.equipe_id, Equipe.id_club == club.id_club))
+        .order_by(asc(ResultatBase.place))
+        .all()
+    )
+    relais = [{
+        "label": f"{epr.legs_count}x{epr.distance}m {epr.nage}",
+        "genre": epr.genre,
+        "temps": base.temps or "—",
+        "points": int(base.points or 0),
+        "place": base.place or "—",
+    } for base, _, _, epr in rel_rows]
 
-    # helpers HTML
+    # Helpers rendu
     def self_class(nom_club: str) -> str:
         return ' class="self"' if (nom_club or '').strip().lower() == (club.nom or '').strip().lower() else ''
 
@@ -365,6 +365,75 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
         return (t or "—")
 
     prev_label = f"{_opposite_season(champ.saison).title()}" if prev else "—"
+    season_title = champ.saison.title()
+
+    def render_swimmers(swimmers: list[dict]) -> str:
+        sections = []
+        for sw in swimmers:
+            rows = ''.join(
+                f"<tr><td>{e['label']}</td>"
+                f"<td>{mark_time(e.get('prev'), e['epr_id'])}</td>"
+                f"<td>{mark_time(e.get('curr'), e['epr_id'])}</td></tr>"
+                for e in sw['epreuves']
+            )
+            sections.append(
+                f"""
+  <div>
+    <b>{sw['nom']}</b>
+    <table>
+      <thead><tr><th>Nage</th><th>Temps {prev_label}</th><th>Temps {season_title}</th></tr></thead>
+      <tbody>
+      {rows}
+      </tbody>
+    </table>
+  </div>"""
+            )
+        return "\n".join(sections)
+
+    def render_table(rows):
+        return ''.join(
+            f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>"
+            for i, r in enumerate(rows)
+        )
+
+    def render_rank_by_grouped() -> str:
+        parts = []
+        for nage, group in rank_by_grouped.items():
+            rows_m = render_table(group.get("Messieurs", []))
+            rows_f = render_table(group.get("Dames", []))
+            parts.append(
+                f"""
+    <h3>{nage}</h3>
+    <div class="two-col">
+      <div>
+        <h4>Messieurs</h4>
+        <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
+          {rows_m}
+        </tbody></table>
+      </div>
+      <div>
+        <h4>Dames</h4>
+        <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
+          {rows_f}
+        </tbody></table>
+      </div>
+    </div>"""
+            )
+        return "\n".join(parts)
+
+    # Blocs pré-rendus (pour éviter les f-strings imbriqués)
+    rank_all_rows = render_table(rank_all)
+    all_m_rows = render_table(all_m)
+    all_f_rows = render_table(all_f)
+    relay_m_rows = render_table(relay_m)
+    relay_f_rows = render_table(relay_f)
+    dames_html = render_swimmers(dames)
+    messieurs_html = render_swimmers(messieurs)
+    by_grouped_html = render_rank_by_grouped()
+    relais_rows = ''.join(
+        f"<tr><td>{r['label']}</td><td>{r['genre']}</td><td>{r['temps']}</td><td>{r['points']}</td><td>{r['place']}</td></tr>"
+        for r in relais
+    )
 
     html = f"""
 <!doctype html>
@@ -392,43 +461,16 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
 
   <h2>Classement général des Clubs</h2>
   <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-    {''.join(
-      f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>"
-      for i, r in enumerate(rank_all)
-    )}
+    {rank_all_rows}
   </tbody></table>
 
   <h2>Performances générales des nageurs</h2>
 
   <h3>Dames</h3>
-  {''.join(f"""
-  <div>
-    <b>{sw['nom']}</b>
-    <table>
-      <thead><tr><th>Nage</th><th>Temps {prev_label}</th><th>Temps {champ.saison.title()}</th></tr></thead>
-      <tbody>
-      {''.join(
-        f"<tr><td>{e['label']}</td><td>{mark_time(e['prev'], e['epr_id'])}</td><td>{mark_time(e['curr'], e['epr_id'])}</td></tr>"
-        for e in sw['epreuves']
-      )}
-      </tbody>
-    </table>
-  </div>""" for sw in dames)}
+  {dames_html}
 
   <h3>Messieurs</h3>
-  {''.join(f"""
-  <div>
-    <b>{sw['nom']}</b>
-    <table>
-      <thead><tr><th>Nage</th><th>Temps {prev_label}</th><th>Temps {champ.saison.title()}</th></tr></thead>
-      <tbody>
-      {''.join(
-        f"<tr><td>{e['label']}</td><td>{mark_time(e['prev'], e['epr_id'])}</td><td>{mark_time(e['curr'], e['epr_id'])}</td></tr>"
-        for e in sw['epreuves']
-      )}
-      </tbody>
-    </table>
-  </div>""" for sw in messieurs)}
+  {messieurs_html}
 
   <h2>Cumul des points par nageur</h2>
   <div class="two-col">
@@ -451,13 +493,13 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
     <div>
       <h3>Classement des Messieurs (toutes les nages)</h3>
       <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-        {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(all_m))}
+        {all_m_rows}
       </tbody></table>
     </div>
     <div>
       <h3>Classement des Dames (toutes les nages)</h3>
       <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-        {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(all_f))}
+        {all_f_rows}
       </tbody></table>
     </div>
   </div>
@@ -467,41 +509,25 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
     <div>
       <h3>Classement des Messieurs (RELAIS)</h3>
       <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-        {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(relay_m))}
+        {relay_m_rows}
       </tbody></table>
     </div>
     <div>
       <h3>Classement des Dames (RELAIS)</h3>
       <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-        {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(relay_f))}
+        {relay_f_rows}
       </tbody></table>
     </div>
   </div>
 
   <h2>Classement des Clubs par nage et par genre</h2>
-  {''.join(f"""
-    <h3>{nage}</h3>
-    <div class="two-col">
-      <div>
-        <h4>Messieurs</h4>
-        <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-          {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(group.get('Messieurs', [])))}
-        </tbody></table>
-      </div>
-      <div>
-        <h4>Dames</h4>
-        <table><thead><tr><th>N°</th><th>Club</th><th>Somme des Points</th></tr></thead><tbody>
-          {''.join(f"<tr{self_class(r['club'])}><td>{i+1}</td><td>{r['club']}</td><td>{r['points']}</td></tr>" for i, r in enumerate(group.get('Dames', [])))}
-        </tbody></table>
-      </div>
-    </div>
-  """ for nage, group in rank_by_grouped.items())}
+  {by_grouped_html}
 
   <h2>Relais</h2>
   <table>
     <thead><tr><th>Nage</th><th>Genre</th><th>Temps</th><th>Points</th><th>Classement</th></tr></thead>
     <tbody>
-      {''.join(f"<tr><td>{r['label']}</td><td>{r['genre']}</td><td>{r['temps']}</td><td>{r['points']}</td><td>{r['place']}</td></tr>" for r in relais)}
+      {relais_rows}
     </tbody>
   </table>
 
