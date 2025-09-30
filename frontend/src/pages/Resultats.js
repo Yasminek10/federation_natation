@@ -118,18 +118,46 @@ function Resultats({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r, i) => (
-                  <tr key={i}>
-                    <td>{r.place}</td>
-                    <td>{r.nom}</td>
-                    <td>{r.prenom}</td>
-                    <td>{r.temps}</td>
-                    <td>{r.points}</td>
-                    <td>{r.club}</td>
-                    <td>{r.categorie}</td>
-                  </tr>
-                ))}
-              </tbody>
+  {(() => {
+    // On trie les résultats par catégorie (pour regrouper)
+    const sorted = [...filtered].sort((a, b) =>
+      (a.categorie || "").localeCompare(b.categorie || "")
+    );
+
+    let lastCategorie = null;
+    const rows = [];
+
+    sorted.forEach((r, i) => {
+      // Quand la catégorie change → on insère une ligne séparatrice
+      if (r.categorie !== lastCategorie) {
+        rows.push(
+          <tr key={`cat-${r.categorie}`} className="table-group-divider bg-light">
+            <td colSpan="7" className="fw-bold text-center">
+              {r.categorie}
+            </td>
+          </tr>
+        );
+        lastCategorie = r.categorie;
+      }
+
+      // Puis on insère la ligne normale du nageur
+      rows.push(
+        <tr key={`res-${i}`}>
+          <td>{r.place}</td>
+          <td>{r.nom}</td>
+          <td>{r.prenom}</td>
+          <td>{r.temps}</td>
+          <td>{r.points}</td>
+          <td>{r.club}</td>
+          <td>{r.categorie}</td>
+        </tr>
+      );
+    });
+
+    return rows;
+  })()}
+</tbody>
+
             </Table>
           </div>
         </Card.Body>

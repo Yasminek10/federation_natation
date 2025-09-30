@@ -22,6 +22,7 @@ from championnats import champ_bp
 from result_api import results_yass_bp
 from ocr_blueprint import ocr_bp
 from nageurs import nageursDetails_bp  # ← import nageurs blueprint
+from bilan import bilan_bp
 
 load_dotenv()
 
@@ -82,6 +83,7 @@ def create_app():
     app.register_blueprint(nageursDetails_bp)  # ← register nageursDetails blueprint
 
     app.register_blueprint(champ_bp)
+    app.register_blueprint(bilan_bp)
 
     @app.get("/api/health")
     def health():

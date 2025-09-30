@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify
 from sqlalchemy import func, and_
 from db import db
-from db import ResultatBase, ResultatIndividuel, ResultatRelais, Nageur, Equipe, CEC, Club, Epreuve, Categorie, Minimas
+from db import ResultatBase,EquipeMembre, ResultatIndividuel, ResultatRelais, Nageur, Equipe, CEC, Club, Epreuve, Categorie, Minimas,EquipeMembre
 from sqlalchemy.orm import aliased
+from ingest import time_to_seconds, seconds_to_str, is_tunisian  # réutilise helpers existants
 
 results_yass_bp = Blueprint("results_yass", __name__, url_prefix="/api/epreuves")
 
@@ -32,12 +33,14 @@ def convert_time_to_seconds(time_str: str):
 # === Route 1 : résultats détaillés ===
 @results_yass_bp.get("/<int:epreuve_id>/resultats")
 def get_resultats(epreuve_id):
+    # Sous-requête pour les CEC de cette épreuve
     cec_subq = (
         db.session.query(CEC.cec_id)
         .filter(CEC.epreuve_id == epreuve_id)
         .subquery()
     )
 
+    # Récupération des résultats
     resultats = (
         db.session.query(
             ResultatBase.resultat_id,
@@ -53,6 +56,7 @@ def get_resultats(epreuve_id):
             Epreuve.nage,
             Epreuve.genre,
             Categorie.nom.label("categorie"),
+            Equipe.equipe_id.label("equipe_id")
         )
         .outerjoin(res_indiv, res_indiv.resultat_id == ResultatBase.resultat_id)
         .outerjoin(Nageur, Nageur.id_nageur == res_indiv.id_nageur)
@@ -69,22 +73,50 @@ def get_resultats(epreuve_id):
 
     res_list = []
     for r in resultats:
-        res_list.append({
-            "id": r.resultat_id,
-            "place": r.place,
-            "points": r.points,
-            "temps": r.temps,
-            "statut": r.statut,
-            "nom": r.nom,
-            "prenom": r.prenom,
-            "club": r.club_indiv or r.club_relais,
-            "distance": r.distance,
-            "nage": r.nage,
-            "genre": r.genre,
-            "categorie": r.categorie,
-        })
+        if r.nom:  
+            # Cas individuel → une seule ligne
+            res_list.append({
+                "id": r.resultat_id,
+                "place": r.place,
+                "points": r.points,
+                "temps": r.temps,
+                "statut": r.statut,
+                "nom": r.nom,
+                "prenom": r.prenom,
+                "club": r.club_indiv,
+                "distance": r.distance,
+                "nage": r.nage,
+                "genre": r.genre,
+                "categorie": r.categorie,
+            })
+        elif r.equipe_id:
+            # Cas relais → une ligne par nageur
+            nageurs = (
+                db.session.query(Nageur.nom, Nageur.prenom)
+                .join(EquipeMembre, EquipeMembre.nageur_id == Nageur.id_nageur)
+                .filter(EquipeMembre.equipe_id == r.equipe_id)
+                .order_by(EquipeMembre.leg_order)
+                .all()
+            )
+            for n in nageurs:
+                res_list.append({
+                    "id": r.resultat_id,
+                    "place": r.place,
+                    "points": r.points,
+                    "temps": r.temps,
+                    "statut": r.statut,
+                    "nom": n.nom,
+                    "prenom": n.prenom,
+                    "club": r.club_indiv or r.club_relais,
+                    "distance": r.distance,
+                    "nage": r.nage,
+                    "genre": r.genre,
+                    "categorie": r.categorie,
+                })
 
     return jsonify(res_list)
+
+
 
 
 # === Route 2 : cumul des points ===
@@ -160,62 +192,109 @@ def get_resultats_cumul(epreuve_id):
 
     return jsonify(cumul_list)
 
-@results_yass_bp.get("/statistiques/cumul")
-def get_stats_cumul():
-    resultats = (
-        db.session.query(
-            ResultatBase.points,
-            ResultatBase.place,
-            ResultatBase.temps,
-            Nageur.nationalite,
-            Epreuve.distance,
-            Epreuve.nage,
-            Epreuve.genre,
-            Categorie.max_places_indiv,
-            Categorie.max_places_relay,
-            Minimas.temp_min,
-        )
-        .join(CEC, CEC.cec_id == ResultatBase.cec_id)
+def _is_eligible_swimmer(n: Nageur) -> bool:
+    # Tunisien auto sinon doit être approuvé (eligible_points=True)
+    return (is_tunisian(n.nationalite) or bool(n.eligible_points))
+
+def _meet_minima(epreuve_id: int, categorie_id: int, temps: str | None) -> bool:
+    if not temps: 
+        return False
+    m = Minimas.query.filter_by(epreuve_id=epreuve_id, categorie_id=categorie_id).first()
+    if not m: 
+        return True  # si pas de minima enregistré, on n'exclut pas
+    t = time_to_seconds(temps)
+    tm = time_to_seconds(m.temp_min)
+    return (t is not None and tm is not None and t <= tm)
+def _cap(val, default):
+    try:
+        return int(val) if val is not None else int(default)
+    except:
+        return int(default)
+@results_yass_bp.get("/statistiques/cumul/<int:champ_id>")
+def get_stats_cumul(champ_id):
+    cumul = {}
+
+    # On récupère tous les CEC du championnat
+    cecs = (
+        db.session.query(CEC)
         .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
         .join(Categorie, Categorie.categorie_id == CEC.categorie_id)
-        .outerjoin(res_indiv, res_indiv.resultat_id == ResultatBase.resultat_id)
-        .outerjoin(Nageur, Nageur.id_nageur == res_indiv.id_nageur)
-        .outerjoin(res_relais, res_relais.resultat_id == ResultatBase.resultat_id)
-        .outerjoin(Equipe, Equipe.equipe_id == res_relais.equipe_id)
-        .outerjoin(
-            Minimas,
-            and_(
-                Minimas.epreuve_id == Epreuve.epreuve_id,
-                Minimas.categorie_id == Categorie.categorie_id,
-            ),
-        )
+        .filter(CEC.champ_id == champ_id)
         .all()
     )
 
-    cumul = {}
-    for r in resultats:
-        key = (r.distance, r.nage)
+    for cec in cecs:
+        epr = cec.epreuve
+        cat = cec.categorie
 
-        # === Conditions ===
-        if r.place is None:
-            continue
-        max_places = r.max_places_indiv or r.max_places_relay
-        if max_places and r.place > max_places:
-            continue
-        if r.nationalite and r.nationalite.strip().upper() != "TUN":
-            continue
-        nageur_time = convert_time_to_seconds(r.temps)
-        min_time = convert_time_to_seconds(r.temp_min)
-        if min_time and (nageur_time is None or nageur_time > min_time):
-            continue
+        # === CAS RELAIS ===
+        if epr.is_relay:
+            cap = _cap(cat.max_places_relay, 8)
+            q = (
+                db.session.query(ResultatBase, ResultatRelais, Equipe)
+                .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
+                .join(Equipe, Equipe.equipe_id == ResultatRelais.equipe_id)
+                .filter(
+                    ResultatBase.cec_id == cec.cec_id,
+                    ResultatBase.statut == "OK",
+                    ResultatBase.place.isnot(None),
+                    ResultatBase.place <= cap,
+                )
+            )
 
-        # Ajouter au cumul
-        if key not in cumul:
-            cumul[key] = {"distance": r.distance, "nage": r.nage, "dames": 0, "messieurs": 0}
+            for base, _, eq in q:
+                # Vérifier minimas
+                if not _meet_minima(epr.epreuve_id, cat.categorie_id, base.temps):
+                    continue
 
-        if r.genre and r.genre.strip().upper().startswith("DAM"):
-            cumul[key]["dames"] += r.points or 0
+                # Vérifier que tous les nageurs de l’équipe sont éligibles
+                mems = (
+                    db.session.query(Nageur)
+                    .join(EquipeMembre, EquipeMembre.nageur_id == Nageur.id_nageur)
+                    .filter(EquipeMembre.equipe_id == eq.equipe_id)
+                    .all()
+                )
+                if not mems or not all(_is_eligible_swimmer(n) for n in mems):
+                    continue
+
+                key = (epr.distance, epr.nage)
+                if key not in cumul:
+                    cumul[key] = {"distance": epr.distance, "nage": epr.nage, "dames": 0, "messieurs": 0}
+
+                # Genre = basé sur l’épreuve
+                if epr.genre.upper().startswith("DAM"):
+                    cumul[key]["dames"] += int(base.points or 0) * 2
+                else:
+                    cumul[key]["messieurs"] += int(base.points or 0) * 2
+
+        # === CAS INDIVIDUEL ===
         else:
-            cumul[key]["messieurs"] += r.points or 0
+            cap = _cap(cat.max_places_indiv, 8)
+            q = (
+                db.session.query(ResultatBase, ResultatIndividuel, Nageur)
+                .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+                .join(Nageur, Nageur.id_nageur == ResultatIndividuel.id_nageur)
+                .filter(
+                    ResultatBase.cec_id == cec.cec_id,
+                    ResultatBase.statut == "OK",
+                    ResultatBase.place.isnot(None),
+                    ResultatBase.place <= cap,
+                )
+            )
+
+            for base, _, nageur in q:
+                if not _is_eligible_swimmer(nageur):
+                    continue
+                if not _meet_minima(epr.epreuve_id, cat.categorie_id, base.temps):
+                    continue
+
+                key = (epr.distance, epr.nage)
+                if key not in cumul:
+                    cumul[key] = {"distance": epr.distance, "nage": epr.nage, "dames": 0, "messieurs": 0}
+
+                if epr.genre.upper().startswith("DAM"):
+                    cumul[key]["dames"] += int(base.points or 0)
+                else:
+                    cumul[key]["messieurs"] += int(base.points or 0)
 
     return jsonify(list(cumul.values()))

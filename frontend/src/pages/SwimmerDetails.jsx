@@ -1,14 +1,18 @@
-// src/pages/SwimmerDetails.js
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, Table, Row, Col, Badge, Spinner, Button } from "react-bootstrap";
+import { Card, Row, Col, Spinner, Button, Nav } from "react-bootstrap";
 import Navbar_Home from "../components/Navbar_Home";
-
+import IndividualResults from "../components/IndividualResults";
+import RelayResults from "../components/RelayResults";
+import MedalsCount from "../components/MedailCountNageur";
+import "../styles/nageurDetails.css";
 export default function SwimmerDetails({ user }) {
   const { nageurId } = useParams();
+
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("individuels");
 
   useEffect(() => {
     fetch(`http://localhost:5000/api/nageursDetails/${nageurId}`)
@@ -29,7 +33,7 @@ export default function SwimmerDetails({ user }) {
       </div>
     );
 
-  const { nageur, historique, analyses } = data;
+  const { nageur, historique = [], analyses, relais = [] } = data;
 
   return (
     <div>
@@ -41,7 +45,6 @@ export default function SwimmerDetails({ user }) {
           <Card.Body
             className="rounded-3"
             style={{
-              background: "#ffffff",
               background:
                 "linear-gradient(14deg,rgba(255, 255, 255, 1) 0%, rgba(230, 245, 255, 1) 100%)",
             }}
@@ -68,7 +71,7 @@ export default function SwimmerDetails({ user }) {
               </Col>
 
               <Col>
-                <h3 className="fw-bold mb-1" style={{ color: '#0e3e84dd' }}>
+                <h3 className="fw-bold mb-1" style={{ color: "#0e3e84dd" }}>
                   {nageur.prenom} {nageur.nom}
                 </h3>
                 <div className="d-flex gap-3 small text-secondary fw-semibold">
@@ -125,48 +128,32 @@ export default function SwimmerDetails({ user }) {
           </Col>
         </Row>
 
-        {/* Historique */}
-        <Card className="shadow-sm border-0 rounded-3">
-          <Card.Header className="bg-primary text-white">
-            Historique des résultats
-          </Card.Header>
-          <Card.Body className="p-0">
-            <Table hover responsive className="mb-0">
-              <thead className="table-light">
-                <tr>
-                  <th>Championnat</th>
-                  <th>Saison</th>
-                  <th>Épreuve</th>
-                  <th>Catégorie</th>
-                  <th>Temps</th>
-                  <th>Points</th>
-                  <th>Place</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historique.map((h, idx) => (
-                  <tr key={idx}>
-                    <td>{h.championnat}</td>
-                    <td>{h.saison}</td>
-                    <td>{h.epreuve}</td>
-                    <td>
-                      <Badge bg="secondary">{h.categorie}</Badge>
-                    </td>
-                    <td>{h.temps}</td>
-                    <td>{h.points}</td>
-                    <td>{h.place}</td>
-                    <td>
-                      <Badge bg={h.statut === "OK" ? "success" : "danger"}>
-                        {h.statut}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </Card.Body>
-        </Card>
+        {/* Onglets Résultats */}
+  <Nav
+  activeKey={activeTab}
+  onSelect={(selectedKey) => setActiveTab(selectedKey)}
+  className="nav-simple justify-content-center mb-4"
+>
+  <Nav.Item>
+    <Nav.Link eventKey="individuels"> Individuels</Nav.Link>
+  </Nav.Item>
+  <Nav.Item>
+    <Nav.Link eventKey="relais">Relais</Nav.Link>
+  </Nav.Item>
+  <Nav.Item>
+    <Nav.Link eventKey="medails">Médailles</Nav.Link>
+  </Nav.Item>
+</Nav>
+
+
+        {/* Composants selon l'onglet */}
+        {activeTab === "individuels" && (
+          <IndividualResults historique={historique} />
+        )}
+        {activeTab === "relais" && <RelayResults relais={relais} />}
+        {activeTab === "medails" && (
+          <MedalsCount historique={historique} relais={relais} medaillesTc={data.medailles_tc}/>
+        )}
       </div>
     </div>
   );
