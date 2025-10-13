@@ -1,9 +1,6 @@
 from flask import Blueprint, jsonify
 from sqlalchemy import case, func, cast, String
-from db import (
-    db, Club, Nageur, ResultatIndividuel, ResultatBase, CEC, Epreuve,
-    Championnat, Categorie, ResultatRelais, Equipe  # ✅ ajoutés ici
-)
+from db import (db, Club, Nageur, ResultatIndividuel, ResultatBase, CEC, Epreuve,Championnat, Categorie, ResultatRelais, Equipe )
 
 from system_date import get_categorie_from_birth_year
 from system_date import extraire_nom_annee

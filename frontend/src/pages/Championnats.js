@@ -11,8 +11,8 @@ function Championnats({ user }) {
 
   useEffect(() => {
     fetch("http://localhost:5000/api/championnats/")
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setChampionnats(data);
         setLoading(false);
       })
@@ -31,35 +31,37 @@ function Championnats({ user }) {
     <div>
       {/* ===== Navbar ===== */}
       <Navbar_Home user={user} />
-    <Container className="mt-4">
-      <h2 className="text-center mb-4">🏆 Liste des Championnats</h2>
-      <Row className="g-4">
-        {championnats.map(c => (
-          <Col key={c.id} xs={12} sm={6} md={4} lg={3}>
-            <Card
-              className="shadow-sm h-100 hover-card"
-              onClick={() => navigate(`/championnats/${c.id}/epreuves`)}
-              style={{ cursor: "pointer", borderRadius: "12px" }}
-            >
-              <Card.Body className="d-flex flex-column justify-content-between">
-                <Card.Title className="text-primary fw-bold">
-                  {c.nom}
-                </Card.Title>
-                <Card.Text>
-                  <strong>Saison :</strong> {c.saison} <br />
-                  <strong>Lieu :</strong> {c.lieu}
-                </Card.Text>
-                <div className="mt-auto text-end">
-                  <span className="btn btn-outline-primary btn-sm">
-                    Voir détails →
-                  </span>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-    </Container>
+      <Container className="mt-4 justify-content-center">
+        <h2 className="text-center mb-4">🏆 Liste des Championnats</h2>
+        <Row className="g-4">
+          {championnats.map((c) => (
+            <Col key={c.id} xs={12} sm={6} md={4} lg={3} className="mx-auto">
+              <Card
+                className="shadow-sm h-100 hover-card flex-fill"
+                onClick={() => navigate(`/championnats/${c.id}/epreuves`)}
+                style={{ cursor: "pointer", borderRadius: "12px" }}
+              >
+                <Card.Body className="d-flex flex-column justify-content-between">
+                  <Card.Title className="text-primary fw-bold">
+                    {c.nom}
+                  </Card.Title>
+                  <Card.Text>
+                    <strong>Saison :</strong> {c.saison} <br />
+                    <strong>Lieu :</strong> {c.lieu}<br />
+                    <strong>Date Debut :</strong> {c.datedeb}<br />
+                    <strong>Date Fin :</strong> {c.datefin}
+                  </Card.Text>
+                  <div className="mt-auto text-end">
+                    <span className="btn btn-outline-primary btn-sm">
+                      Voir détails →
+                    </span>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Container>
     </div>
   );
 }

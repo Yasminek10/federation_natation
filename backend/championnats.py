@@ -26,23 +26,28 @@ def get_championnats():
 @champ_bp.get("/<int:champ_id>/epreuves")
 def get_epreuves(champ_id):
     epreuves = (
-        db.session.query(CEC, Epreuve, Categorie)
-        .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
-        .join(Categorie, Categorie.categorie_id == CEC.categorie_id)
+        db.session.query(
+            Epreuve.epreuve_id,
+            Epreuve.nage,
+            Epreuve.distance,
+            Epreuve.genre,
+            Epreuve.is_relay
+        )
+        .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
         .filter(CEC.champ_id == champ_id)
+        .distinct()  # ici ça déduplique sur les colonnes choisies
         .all()
     )
+
     return jsonify([
         {
-            "cec_id": c.CEC.cec_id,
-            "epreuve_id": c.Epreuve.epreuve_id,
-            "categorie": c.Categorie.nom,
-            "nage": c.Epreuve.nage,
-            "distance": c.Epreuve.distance,
-            "genre": c.Epreuve.genre,
-            "is_relay": c.Epreuve.is_relay,
+            "epreuve_id": e.epreuve_id,
+            "nage": e.nage,
+            "distance": e.distance,
+            "genre": e.genre,
+            "is_relay": e.is_relay,
         }
-        for c in epreuves
+        for e in epreuves
     ])
 
 

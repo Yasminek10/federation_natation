@@ -12,6 +12,7 @@ conn = psycopg2.connect(
     database="NatationDB",
     user="postgres",
     password="admin"
+
 )
 
 @minimas_bp.route("/", methods=["GET"])

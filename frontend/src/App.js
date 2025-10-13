@@ -23,6 +23,10 @@ import Championnats from "./pages/Championnats";
 import Epreuves from "./pages/Epreuves";
 import Resultats from "./pages/Resultats";
 import SwimmerDetails from "./pages/SwimmerDetails";
+
+import CumulPoints from "./pages/CumulPoints";
+import Statistiques from "./pages/Statistiques";
+
 import ClubAnalyses from "./components/ClubsAnalyses";
 import ClubDetails from "./pages/ClubDetails";
 const currentUser = JSON.parse(localStorage.getItem("user"));
@@ -54,6 +58,10 @@ export default function App() {
         path="/epreuves/:epreuveId/resultats"
         element={<Resultats user={currentUser} />}
       />
+
+       <Route path="/epreuves/:epreuveId/cumul" 
+       element={<CumulPoints user={currentUser} />} />
+       <Route path="/statistiques/:id" element={<Statistiques user={currentUser} />} />
 
       {/* /login accessible seulement si NON connecté */}
       <Route

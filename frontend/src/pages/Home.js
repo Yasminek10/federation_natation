@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import "../styles/home.css";
 import { useNavigate } from "react-router-dom";
-import Navbar_Home from "../components/Navbar_Home"; // ✅ Import
+import axios from "axios";
+import { Button, Spinner } from "react-bootstrap";
+import Navbar_Home from "../components/Navbar_Home";
 import ClubsList from "../components/Clubs";
 
 function Home() {
@@ -13,6 +15,30 @@ function Home() {
     setUser(savedUser);
     console.log("Utilisateur connecté :", savedUser);
   }, []);
+  const [lastChampionnat, setLastChampionnat] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch the last championnat (assuming your backend returns a list sorted by date)
+    axios
+      .get("http://localhost:5000/api/championnats")
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          const last = data[data.length - 1]; // last one added
+          setLastChampionnat(last);
+        }
+      })
+      .catch((err) => console.error("Erreur chargement championnat:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const goToOCR = () => navigate("/ocr");
+  const goToLastChampionnat = () => {
+    if (lastChampionnat) {
+      navigate(`/championnats/${lastChampionnat.id}/epreuves`);
+    }
+  };
 
   return (
     <div className="home">
@@ -49,26 +75,59 @@ function Home() {
           )}
         </div>
       </section>
-
       {/* ===== Section Actualités ===== */}
       <section id="actualites" className="news-section">
-        <h3>Dernières actualités</h3>
-        <div className="news-grid">
-          <div className="news-card">
-            <h4>Championnat National 2025</h4>
-            <p>
-              Retrouvez les résultats complets et les photos de l'événement.
-            </p>
+        <h3>Accès Rapide</h3>
+
+        {loading ? (
+          <div className="text-center my-4">
+            <Spinner animation="border" variant="primary" />
           </div>
-          <div className="news-card">
-            <h4>Stage de préparation</h4>
-            <p>Les équipes nationales en stage intensif à Hammamet.</p>
+        ) : (
+          <div className="news-grid">
+            {/* === Analyse rapide d'image === */}
+            <div
+              className="news-card clickable"
+              onClick={goToOCR}
+              style={{ cursor: "pointer" }}
+            >
+              <h4>🖼️ Analyse rapide d’image</h4>
+              <p>
+                Importez une image de résultat et obtenez une analyse OCR
+                instantanée.
+              </p>
+            </div>
+
+            {/* === Dernier Championnat === */}
+            <div
+              className={`news-card clickable ${
+                !lastChampionnat ? "disabled-card" : ""
+              }`}
+              onClick={goToLastChampionnat}
+              style={{
+                cursor: lastChampionnat ? "pointer" : "not-allowed",
+                opacity: lastChampionnat ? 1 : 0.6,
+              }}
+            >
+              <h4>🏊‍♂️ Dernier Championnat</h4>
+              <p>
+                Consultez les épreuves et résultats du dernier championnat
+                ajouté.
+              </p>
+              {lastChampionnat && (
+                <small className="text-muted">
+                  ({lastChampionnat.nom || lastChampionnat.championnat})
+                </small>
+              )}
+            </div>
+
+            {/* === (Optional third card to keep design balance) === */}
+            {/* <div className="news-card">
+        <h4>📅 Calendrier des compétitions</h4>
+        <p>Découvrez les prochains événements de la saison.</p>
+      </div> */}
           </div>
-          <div className="news-card">
-            <h4>Nouvelle piscine olympique</h4>
-            <p>Inauguration de la nouvelle piscine olympique de Tunis.</p>
-          </div>
-        </div>
+        )}
       </section>
 
       {/* ===== Footer ===== */}

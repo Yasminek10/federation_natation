@@ -8,7 +8,7 @@ import {
   Pagination,
 } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
-
+// liste des nageurs d'un club avec recherche, filtre, pagination
 export default function SwimmersList({ clubId }) {
   const navigate = useNavigate();
   const [swimmers, setSwimmers] = useState([]);
