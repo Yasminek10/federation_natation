@@ -147,6 +147,79 @@ def _tc_podiums_for_champ(champ_id: int):
             })
     return out
 
+
+
+
+def _event_key(epr_label: str) -> tuple:
+    """
+    Convertit '100m Nage Libre (Messieurs)' -> ('Nage Libre', 100, 'Messieurs')
+    Tolérant si le format est inhabituel.
+    """
+    try:
+        main, _, rest = epr_label.partition('m ')
+        distance = int(main.strip())
+        nage, _, genre_paren = rest.partition(' (')
+        genre = genre_paren.replace(')', '').strip() if genre_paren else None
+        return (nage.strip(), distance, genre)
+    except Exception:
+        return (epr_label, None, None)
+
+def _build_training_suggestions(stats, trend, dq_stats):
+    """
+    Transforme les métriques en conseils lisibles.
+    stats: dict avec 'events_summary', 'best_events', 'minima_fail_hotspots', 'versatility', 'stroke_averages'
+    trend: dict avec 'by_year' (liste {'year','avg_points'}), 'last_change'
+    dq_stats: {'dsq': int, 'dns_dnf': int, 'total': int}
+    """
+    suggestions = []
+
+    # 1) Profil sprinter vs endurance (selon les distances des meilleures épreuves)
+    if stats.get("best_events"):
+        best_distances = [e.get("distance") for e in stats["best_events"] if e.get("distance")]
+        if best_distances:
+            short_cnt = sum(1 for d in best_distances if d and d <= 100)
+            long_cnt  = sum(1 for d in best_distances if d and d >= 200)
+            if short_cnt >= 2 and long_cnt == 0:
+                suggestions.append("Profil sprinter : consolider la vitesse (explosivité, départs/virages, lactique court, séries 25–50m).")
+            elif long_cnt >= 2 and short_cnt == 0:
+                suggestions.append("Profil endurance : accentuer l’aérobie/tempo (200–800m, pacing négatif, seuil).")
+            else:
+                suggestions.append("Profil mixte : alterner blocs vitesse (25–50m) et aérobie (200–400m) sur la semaine.")
+
+    # 2) Moyennes par nage → force/faiblesse
+    stroke_avgs = stats.get("stroke_averages", {})
+    if stroke_avgs:
+        best_stroke = max(stroke_avgs.items(), key=lambda kv: kv[1])[0]
+        worst_stroke = min(stroke_avgs.items(), key=lambda kv: kv[1])[0]
+        suggestions.append(f"Force : {best_stroke}. Continuer le volume spécifique + vitesse de course.")
+        suggestions.append(f"Faiblesse : {worst_stroke}. 2×/sem technique ciblée (drills, coordination bras-jambes).")
+
+    # 3) Minimas : hotspots
+    for hot in stats.get("minima_fail_hotspots", [])[:2]:
+        suggestions.append(
+            f"Minimas irréguliers en {hot['distance']}m {hot['nage']} : économie gestuelle + virages. "
+            f"Objectif : +{hot['target_points_boost']} pts via séries au seuil."
+        )
+
+    # 4) Tendance points (année → année)
+    lc = trend.get("last_change")
+    if lc is not None:
+        if lc < -10:
+            suggestions.append("Baisse récente : micro-cycle de récupération + bilan charge/sommeil ; rééquilibrer intensités.")
+        elif lc > 10:
+            suggestions.append("Progression notable : garder la structure, placer des compétitions de repère.")
+
+    # 5) DSQ / DNS-DNF
+    if dq_stats.get("dsq", 0) >= 2:
+        suggestions.append("DSQ multiples : sécuriser la conformité technique (départs/coulées/virages) — vidéo + feedback.")
+    if dq_stats.get("dns_dnf", 0) >= 2:
+        suggestions.append("DNS/DNF fréquents : routine échauffement + nutrition/hydratation à revoir.")
+
+    # 6) Variété de nages
+    if stats.get("versatility", 0) <= 1:
+        suggestions.append("Variété limitée : introduire 1 séance hebdo d’une autre nage (prévention blessures + transferts techniques).")
+
+    return suggestions[:6]
 # ==============================
 # Détails d’un nageur
 # ==============================
@@ -188,7 +261,8 @@ def get_nageur_details(nageur_id):
 
     def leg_time_only(split_raw: str | None) -> str:
         return clean_str(split_raw)
-
+    
+    
     # --- Infos nageur ---
     nageur_data = {
         "id": nageur.id_nageur,
@@ -294,11 +368,133 @@ def get_nageur_details(nageur_id):
         "points_moyens": (sum(indiv_points) / len(indiv_points)) if indiv_points else None,
     }
 
+    # === NOUVEAU: Stats détaillées / tendances / conseils ===
+    # 1) Individuels valides (statut OK) pour les métriques
+    indiv_valid = []
+    for h in historiques:
+        if (h.get("statut") or "").upper() != "OK":
+            continue
+        key_nage, key_dist, key_genre = _event_key(h["epreuve"])
+        indiv_valid.append({
+            "epreuve": h["epreuve"],
+            "nage": key_nage,
+            "distance": key_dist,
+            "genre": key_genre,
+            "temps": h["temps"],
+            "sec": t2s(h["temps"]),
+            "points": h["points"] or 0,
+            "championnat": h["championnat"],
+            "saison": h["saison"]
+        })
+
+    # 2) Tendance par année (moyenne des points)
+    trend_by_year = {}
+    for it in indiv_valid:
+        # extraire l'année de "xxx (YYYY)"
+        year = None
+        if it["championnat"]:
+            m = str(it["championnat"])
+            if "(" in m and ")" in m:
+                try:
+                    year = int(m[m.find("(")+1:m.find(")")])
+                except Exception:
+                    year = None
+        if year is None:
+            continue
+        trend_by_year.setdefault(year, []).append(it["points"])
+    trend_years = sorted(trend_by_year.keys())
+    trend_series = [{"year": y, "avg_points": (sum(trend_by_year[y]) / len(trend_by_year[y]))} for y in trend_years]
+    last_change = None
+    if len(trend_series) >= 2:
+        last_change = trend_series[-1]["avg_points"] - trend_series[-2]["avg_points"]
+
+    # 3) Résumés par (nage, distance)
+    events_map = {}  # (nage, distance) -> list
+    for it in indiv_valid:
+        if it["nage"] and it["distance"]:
+            events_map.setdefault((it["nage"], it["distance"]), []).append(it)
+
+    events_summary = []
+    minima_fail_hotspots = []
+    stroke_points = {}
+
+    for (nage, distance), arr in events_map.items():
+        pts = [x["points"] for x in arr if x["points"] is not None]
+        secs = [x["sec"] for x in arr if x["sec"] is not None]
+        avg_pts = sum(pts)/len(pts) if pts else 0
+        best_pts = max(pts) if pts else 0
+        best_sec_e = min(secs) if secs else None
+        best_time = s2t(best_sec_e) if best_sec_e is not None else None
+
+        # approxim. du taux de minima OK (on tient compte de toutes les tentatives, OK=points>0 & statut OK)
+        attempts, ok_minima = 0, 0
+        for h in historiques:
+            n2, d2, _g2 = _event_key(h["epreuve"])
+            if n2 == nage and d2 == distance:
+                attempts += 1
+                if (h.get("statut") or "").upper() == "OK" and (h.get("points") or 0) > 0:
+                    ok_minima += 1
+        minima_rate = (ok_minima / attempts) if attempts else None
+
+        events_summary.append({
+            "nage": nage, "distance": distance, "starts": attempts,
+            "avg_points": round(avg_pts, 1), "best_points": best_pts, "best_time": best_time,
+            "minima_success": round(minima_rate*100, 1) if minima_rate is not None else None
+        })
+
+        stroke_points.setdefault(nage, []).append(avg_pts)
+
+        if minima_rate is not None and attempts >= 3 and minima_rate < 0.6:
+            target_boost = max(0, round((0.75 - minima_rate) * 100))  # objectif simple
+            minima_fail_hotspots.append({
+                "nage": nage, "distance": distance,
+                "attempts": attempts,
+                "success": round(minima_rate*100, 1),
+                "target_points_boost": target_boost
+            })
+
+    # 4) Moyennes par nage
+    stroke_averages = {k: round(sum(v)/len(v), 1) for k, v in stroke_points.items() if v}
+
+    # 5) Top 3 meilleures épreuves (≥2 départs)
+    best_events = sorted(
+        [e for e in events_summary if e["starts"] >= 2],
+        key=lambda e: (e["avg_points"], e["best_points"]),
+        reverse=True
+    )[:3]
+
+    # 6) Versatility: nb de nages différentes nagées ≥2 fois
+    versatility = sum(1 for _k, v in events_map.items() if len(v) >= 2)
+
+    # 7) DSQ / DNS / DNF
+    dsq = sum(1 for h in historiques if str(h.get("statut")).upper() == "DSQ")
+    dns_dnf = sum(1 for h in historiques if str(h.get("statut")).upper() in ("DNS", "DNF"))
+    dq_stats = {"dsq": dsq, "dns_dnf": dns_dnf, "total": len(historiques)}  # <- ATTENTION: 'historiques' (avec s)
+
+    # 8) Conseils
+    insights_stats = {
+        "events_summary": events_summary,
+        "best_events": best_events,
+        "minima_fail_hotspots": minima_fail_hotspots,
+        "versatility": versatility,
+        "stroke_averages": stroke_averages
+    }
+    insights_trend = {"by_year": trend_series, "last_change": round(last_change, 1) if last_change is not None else None}
+    suggestions = _build_training_suggestions(insights_stats, insights_trend, dq_stats)
+
     return jsonify({
         "nageur": nageur_data,
         "historique": historiques,
         "analyses": analyses,
         "relais": relais_resultats,
-        "medailles_tc": medailles_tc,   # <-- traçabilité TC ici
+        "medailles_tc": medailles_tc,
+        "insights": {
+            "events_summary": events_summary,
+            "best_events": best_events,
+            "stroke_averages": stroke_averages,
+            "versatility": versatility,
+            "trend": insights_trend,
+            "dq_stats": dq_stats,
+            "suggestions": suggestions,
+        },
     })
-

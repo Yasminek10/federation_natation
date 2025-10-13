@@ -5,6 +5,8 @@ import Navbar_Home from "../components/Navbar_Home";
 import IndividualResults from "../components/IndividualResults";
 import RelayResults from "../components/RelayResults";
 import MedalsCount from "../components/MedailCountNageur";
+import SwimmerInsights from "../components/SwimmerInsights";
+import DownloadButton from "../components/DownloadMenu";
 import "../styles/nageurDetails.css";
 export default function SwimmerDetails({ user }) {
   const { nageurId } = useParams();
@@ -88,6 +90,7 @@ export default function SwimmerDetails({ user }) {
               </Col>
 
               <Col xs="auto">
+                <div className="d-flex align-items-center gap-2">
                 <Button
                   variant="outline-secondary"
                   size="sm"
@@ -95,6 +98,9 @@ export default function SwimmerDetails({ user }) {
                 >
                   ← Retour
                 </Button>
+
+                
+              </div>
               </Col>
             </Row>
           </Card.Body>
@@ -143,17 +149,44 @@ export default function SwimmerDetails({ user }) {
   <Nav.Item>
     <Nav.Link eventKey="medails">Médailles</Nav.Link>
   </Nav.Item>
+  <Nav.Item>
+    <Nav.Link eventKey="insights">Insights</Nav.Link>
+  </Nav.Item>
 </Nav>
 
 
-        {/* Composants selon l'onglet */}
-        {activeTab === "individuels" && (
-          <IndividualResults historique={historique} />
-        )}
-        {activeTab === "relais" && <RelayResults relais={relais} />}
-        {activeTab === "medails" && (
-          <MedalsCount historique={historique} relais={relais} medaillesTc={data.medailles_tc}/>
-        )}
+       {/* Composants selon l'onglet (toujours montés, juste cachés) */}
+      <div
+        id="tab-individuels"
+        style={{ display: activeTab === "individuels" ? "block" : "none" }}
+      >
+        <IndividualResults historique={historique} />
+      </div>
+
+      <div
+        id="tab-relais"
+        style={{ display: activeTab === "relais" ? "block" : "none" }}
+      >
+        <RelayResults relais={relais} />
+      </div>
+
+      <div
+        id="tab-medailles"
+        style={{ display: activeTab === "medails" ? "block" : "none" }}
+      >
+        <MedalsCount
+          historique={historique}
+          relais={relais}
+          medaillesTc={data.medailles_tc}
+        />
+      </div>
+
+      <div
+        id="tab-insights"
+        style={{ display: activeTab === "insights" ? "block" : "none" }}
+      >
+        <SwimmerInsights insights={data.insights} />
+      </div>
       </div>
     </div>
   );

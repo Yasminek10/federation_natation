@@ -43,7 +43,6 @@ def create_app():
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@localhost:5432/NatationDB'
-
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
