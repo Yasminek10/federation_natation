@@ -292,7 +292,6 @@ export default function Statistiques({ user }) {
           </Card.Body>
         </Card>
 
-        <ClassementChampionnat id={id} />
 
         <ClassementChampionnat id={id} />
 

@@ -98,16 +98,7 @@ export default function SwimmerInsights({ insights }) {
         </Card.Body>
       </Card>
 
-      <Card className="shadow-sm border-0 rounded-3">
-        <Card.Header className="bg-primary text-white">Conseils d’entraînement</Card.Header>
-        <Card.Body>
-          {suggestions.length ? (
-            <ul className="mb-0">
-              {suggestions.map((s, i) => <li key={i}>{s}</li>)}
-            </ul>
-          ) : <div className="text-muted">Pas de conseil spécifique pour l’instant.</div>}
-        </Card.Body>
-      </Card>
+      
 
       <Card className="shadow-sm border-0 rounded-3">
         <Card.Header className="bg-primary text-white">Disqualifications / DNS-DNF</Card.Header>
