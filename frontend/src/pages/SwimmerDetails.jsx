@@ -91,16 +91,14 @@ export default function SwimmerDetails({ user }) {
 
               <Col xs="auto">
                 <div className="d-flex align-items-center gap-2">
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => navigate(-1)}
-                >
-                  ← Retour
-                </Button>
-
-                
-              </div>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => navigate(-1)}
+                  >
+                    ← Retour
+                  </Button>
+                </div>
               </Col>
             </Row>
           </Card.Body>
@@ -135,58 +133,57 @@ export default function SwimmerDetails({ user }) {
         </Row>
 
         {/* Onglets Résultats */}
-  <Nav
-  activeKey={activeTab}
-  onSelect={(selectedKey) => setActiveTab(selectedKey)}
-  className="nav-simple justify-content-center mb-4"
->
-  <Nav.Item>
-    <Nav.Link eventKey="individuels"> Individuels</Nav.Link>
-  </Nav.Item>
-  <Nav.Item>
-    <Nav.Link eventKey="relais">Relais</Nav.Link>
-  </Nav.Item>
-  <Nav.Item>
-    <Nav.Link eventKey="medails">Médailles</Nav.Link>
-  </Nav.Item>
-  <Nav.Item>
-    <Nav.Link eventKey="insights">Insights</Nav.Link>
-  </Nav.Item>
-</Nav>
+        <Nav
+          activeKey={activeTab}
+          onSelect={(selectedKey) => setActiveTab(selectedKey)}
+          className="nav-simple justify-content-center mb-4"
+        >
+          <Nav.Item>
+            <Nav.Link eventKey="individuels"> Individuels</Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="relais">Relais</Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="medails">Médailles</Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="insights">Aperçus</Nav.Link>
+          </Nav.Item>
+        </Nav>
 
+        {/* Composants selon l'onglet (toujours montés, juste cachés) */}
+        <div
+          id="tab-individuels"
+          style={{ display: activeTab === "individuels" ? "block" : "none" }}
+        >
+          <IndividualResults historique={historique} />
+        </div>
 
-       {/* Composants selon l'onglet (toujours montés, juste cachés) */}
-      <div
-        id="tab-individuels"
-        style={{ display: activeTab === "individuels" ? "block" : "none" }}
-      >
-        <IndividualResults historique={historique} />
-      </div>
+        <div
+          id="tab-relais"
+          style={{ display: activeTab === "relais" ? "block" : "none" }}
+        >
+          <RelayResults relais={relais} />
+        </div>
 
-      <div
-        id="tab-relais"
-        style={{ display: activeTab === "relais" ? "block" : "none" }}
-      >
-        <RelayResults relais={relais} />
-      </div>
+        <div
+          id="tab-medailles"
+          style={{ display: activeTab === "medails" ? "block" : "none" }}
+        >
+          <MedalsCount
+            historique={historique}
+            relais={relais}
+            medaillesTc={data.medailles_tc}
+          />
+        </div>
 
-      <div
-        id="tab-medailles"
-        style={{ display: activeTab === "medails" ? "block" : "none" }}
-      >
-        <MedalsCount
-          historique={historique}
-          relais={relais}
-          medaillesTc={data.medailles_tc}
-        />
-      </div>
-
-      <div
-        id="tab-insights"
-        style={{ display: activeTab === "insights" ? "block" : "none" }}
-      >
-        <SwimmerInsights insights={data.insights} />
-      </div>
+        <div
+          id="tab-insights"
+          style={{ display: activeTab === "insights" ? "block" : "none" }}
+        >
+          <SwimmerInsights insights={data.insights} />
+        </div>
       </div>
     </div>
   );

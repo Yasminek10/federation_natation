@@ -164,7 +164,7 @@ function Resultats({ user }) {
       </Card>
 
       {/* === Graphiques === */}
-      <Card className="shadow-sm">
+      {/* <Card className="shadow-sm">
         <Card.Body>
           <h5 className="mb-3">Répartition des points par club</h5>
           <ResponsiveContainer width="100%" height={350}>
@@ -177,7 +177,7 @@ function Resultats({ user }) {
             </BarChart>
           </ResponsiveContainer>
         </Card.Body>
-      </Card>
+      </Card> */}
     </Container>
     </div>
   );

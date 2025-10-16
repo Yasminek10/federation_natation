@@ -191,7 +191,7 @@ def export_pdf():
     story = []
     styles = getSampleStyleSheet()
 
-    title = f"Résultats OCR Natation — {champ_name or 'Sans championnat'}"
+    title = f"{champ_name or 'Sans championnat'}"
     story.append(Paragraph(title, styles["Title"]))
     meta = f"<b>Épreuve :</b> {epreuve_label or '-'}  &nbsp;&nbsp;&nbsp;  <b>Catégorie :</b> {categorie_label or '-'}  &nbsp;&nbsp;&nbsp;  <b>Généré le :</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     story.append(Paragraph(meta, styles["Normal"]))
