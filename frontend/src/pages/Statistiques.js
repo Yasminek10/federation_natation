@@ -291,7 +291,7 @@ export default function Statistiques({ user }) {
             </div>
           </Card.Body>
         </Card>
-      
+
         <ClassementChampionnat id={id} />
 
         {/* top clubs + stacked bars */}
