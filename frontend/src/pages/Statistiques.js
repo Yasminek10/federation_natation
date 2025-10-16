@@ -86,45 +86,21 @@ export default function Statistiques({ user }) {
   const [loading, setLoading] = useState(true);
   const pageRef = useRef();
   // 🧾 Fonction de téléchargement PDF
-  // 🧾 Fonction de téléchargement PDF
+
   const handleDownloadPDF = async () => {
-    const element = pageRef.current;
-    if (!element) return;
-
-    // ⏳ Petit délai pour s'assurer que les graphiques sont rendus
-    await new Promise((res) => setTimeout(res, 600));
-
-    const canvas = await html2canvas(element, {
-      scale: 2, // meilleure qualité
-      useCORS: true,
-      scrollY: -window.scrollY, // capture du haut de la page
-      backgroundColor: "#ffffff",
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("l", "mm", "a4"); // 👉 "l" pour paysage
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    // 🔽 Première page
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    // 🌀 Si la page dépasse, on ajoute automatiquement les suivantes
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+    const res = await fetch(`http://localhost:5000/api/pdf/report/${id}`);
+    console.log("id du championnat:", id);
+    if (!res.ok) {
+      alert("Erreur lors de la génération du PDF");
+      return;
     }
-
-    pdf.save(`Statistiques_${championnat?.championnat || "championnat"}.pdf`);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Statistiques_${championnat.nom}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
   };
 
   useEffect(() => {

@@ -12,8 +12,6 @@ conn = psycopg2.connect(
     database="NatationDB",
     user="postgres",
     password="admin"
-
-
    
 )
 
