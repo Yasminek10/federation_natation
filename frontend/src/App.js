@@ -45,7 +45,7 @@ export default function App() {
         element={<SwimmerDetails user={currentUser} />}
       />
 
-      {/* <Route path="/clubs/:clubId/nageurs" element={<SwimmersList />} /> */}
+     
       <Route
         path="/championnats"
         element={<Championnats user={currentUser} />}
