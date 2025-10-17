@@ -123,16 +123,21 @@ export default function Navbar_Home({ user }) {
             <Link to="/championnats" onClick={() => setMenuOpen(false)}>Championnat</Link>
           </li>
           <li>
-            {/* bouton Bilan */}
-            <button
-              type="button"
-              className="nav-link-btn"
-              onClick={() => { setMenuOpen(false); openBilan(); }}
-              aria-haspopup="dialog"
-              aria-expanded={showBilan}
-            >
+            {user?.role === "coach" ? (
+              <Link to="/coach/view" onClick={() => setMenuOpen(false)}>
+                Vue Coach
+              </Link>
+            ) : (
+              <Link
+                to="#"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openBilan();
+                }}
+              >
               Bilan
-            </button>
+              </Link>
+            )}
           </li>
 
           {user?.role === "admin" && (

@@ -29,6 +29,12 @@ class Nageur(db.Model):
         db.ForeignKey("club.id_club", onupdate="CASCADE", ondelete="RESTRICT"),
         nullable=False,
     )
+    # Coach responsable
+    id_coach = db.Column(
+        db.BigInteger,
+        db.ForeignKey("user.user_id", onupdate="CASCADE", ondelete="SET NULL"),
+        nullable=True,
+    )
     # gestion
     eligible_points = db.Column(db.Boolean, nullable=False, server_default="true")
     
@@ -39,6 +45,7 @@ class Nageur(db.Model):
     )
 
     club = relationship("Club", back_populates="nageurs")
+    coach = relationship("User", back_populates="nageurs_encadres")
     # résultats individuels via la table enfant
     resultats_individuels = relationship("ResultatIndividuel", back_populates="nageur", cascade="all, delete-orphan")
       # relation avec ses participations aux équipes
@@ -290,3 +297,77 @@ class User(db.Model):
     mdp_hash = db.Column(db.String(255), nullable=False)  # bcrypt hash
     role = db.Column(db.String(16), nullable=False)       # 'admin' | 'coach'
     __table_args__ = (CheckConstraint("role in ('admin','coach')", name="ck_user_role"),)
+     # Liste des nageurs encadrés
+    nageurs_encadres = relationship("Nageur", back_populates="coach")
+
+
+class Seance(db.Model):
+    __tablename__ = "seance"
+    seance_id = db.Column(db.BigInteger, primary_key=True)
+    date = db.Column(db.Date, nullable=False)
+    session = db.Column(db.String(8), nullable=False)  # 'AM' | 'PM'
+    lieu_training = db.Column(db.String(255))
+    __table_args__ = (
+        UniqueConstraint("date", "session", "lieu_training", name="uq_seance_unique"),
+    )
+
+    presences = relationship("Presence", back_populates="seance", cascade="all, delete-orphan")
+
+
+class Presence(db.Model):
+    __tablename__ = "presence"
+    presence_id = db.Column(db.BigInteger, primary_key=True)
+    nageur_id = db.Column(db.BigInteger, db.ForeignKey("nageur.id_nageur"), nullable=False)
+    seance_id = db.Column(db.BigInteger, db.ForeignKey("seance.seance_id"), nullable=False)
+    present = db.Column(db.Boolean, nullable=False, server_default="true")
+
+    __table_args__ = (
+        UniqueConstraint("nageur_id", "seance_id", name="uq_presence_unique"),
+    )
+
+    nageur = relationship("Nageur", backref="presences")
+    seance = relationship("Seance", back_populates="presences")
+
+class SessionTest(db.Model):
+    __tablename__ = "session_test"
+    session_test_id = db.Column(db.BigInteger, primary_key=True)
+    date_test = db.Column(db.Date, nullable=False)
+    epreuve_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("epreuve.epreuve_id", onupdate="CASCADE", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    
+    __table_args__ = (
+        UniqueConstraint("date_test", "epreuve_id", name="uq_session_test_unique"),
+        Index("idx_session_test_epreuve_date", "epreuve_id", "date_test"),
+    )
+
+    epreuve = relationship("Epreuve")
+    resultats = relationship("ResultatTest", back_populates="session_test", cascade="all, delete-orphan")
+
+class ResultatTest(db.Model):
+    __tablename__ = "resultat_test"
+    resultat_test_id = db.Column(db.BigInteger, primary_key=True)
+
+    nageur_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("nageur.id_nageur", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    session_test_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("session_test.session_test_id", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    temps = db.Column(db.String(32))
+
+    __table_args__ = (
+        UniqueConstraint("nageur_id", "session_test_id", name="uq_resultat_test_unique"),
+        Index("idx_resultat_test_nageur", "nageur_id"),
+    )
+
+    nageur = relationship("Nageur", backref="resultats_tests")
+    session_test = relationship("SessionTest", back_populates="resultats")
