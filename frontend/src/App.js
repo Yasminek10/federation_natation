@@ -29,6 +29,8 @@ import Statistiques from "./pages/Statistiques";
 
 import ClubAnalyses from "./components/ClubsAnalyses";
 import ClubDetails from "./pages/ClubDetails";
+import CoachView from "./pages/CoachView";
+
 const currentUser = JSON.parse(localStorage.getItem("user"));
 
 export default function App() {
@@ -93,10 +95,10 @@ export default function App() {
         }
       />
       <Route
-        path="/coach-dashboard"
+        path="/coach/view"
         element={
           <RequireRole roles={["coach"]}>
-            <CoachDashboard />
+            <CoachView />
           </RequireRole>
         }
       />

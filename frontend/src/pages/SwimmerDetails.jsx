@@ -6,7 +6,6 @@ import IndividualResults from "../components/IndividualResults";
 import RelayResults from "../components/RelayResults";
 import MedalsCount from "../components/MedailCountNageur";
 import SwimmerInsights from "../components/SwimmerInsights";
-import DownloadButton from "../components/DownloadMenu";
 import "../styles/nageurDetails.css";
 export default function SwimmerDetails({ user }) {
   const { nageurId } = useParams();
