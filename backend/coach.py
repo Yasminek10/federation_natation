@@ -4,7 +4,9 @@ from system_date import get_categorie_from_birth_year
 from datetime import date as dt_date
 from functools import lru_cache
 import re
-
+import io
+import csv
+from flask import send_file
 
 coach_bp = Blueprint("coach", __name__, url_prefix="/api/coach")
 
@@ -297,9 +299,69 @@ def get_presences_by_date():
         "seance_id": seance.seance_id,
         "date": seance.date.isoformat(),
         "session": seance.session,
-        "lieu": seance.lieu_training,   # ✅ ajout du lieu ici
+        "lieu": seance.lieu_training,   #  ajout du lieu ici
         "presences": data
     })
+
+@coach_bp.get("/presences/export")
+def export_presences_completes():
+    """Exporter la liste complète des nageurs avec leur présence/absence en CSV."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    date = request.args.get("date")
+    session_name = request.args.get("session")
+    if not date or not session_name:
+        return jsonify({"message": "Date et session requises"}), 400
+
+    seance = Seance.query.filter_by(date=date, session=session_name).first()
+    nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+
+    if not seance:
+        # Si la séance n'existe pas encore : tous présents par défaut
+        rows = [
+            {
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "present": True
+            }
+            for n in nageurs
+        ]
+    else:
+        # Dictionnaire des présences réelles
+        pres_dict = {p.nageur_id: p.present for p in seance.presences}
+        rows = [
+            {
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "present": pres_dict.get(n.id_nageur, True)
+            }
+            for n in nageurs
+        ]
+
+    #  Génération CSV identique au tableau React
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Nom", "Prénom", "Catégorie", "Présence"])
+    for r in rows:
+        writer.writerow([
+            r["nom"],
+            r["prenom"],
+            r["categorie"],
+            "Présent" if r["present"] else "Absent"
+        ])
+
+    output.seek(0)
+    filename = f"presences_{date}_{session_name}.csv"
+    return send_file(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
 
 # ======================================================
 # 🔹 Historique des séances du coach
@@ -336,6 +398,107 @@ def get_seances_history():
             for s in seances
         ]
     })
+
+@coach_bp.get("/tests/export")
+def export_tests_csv():
+    """Exporter les résultats d’un test (date + épreuve) en CSV (avec colonne Présence)."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    date_str = request.args.get("date")
+    epreuve_id = request.args.get("epreuve_id", type=int)
+    if not date_str or not epreuve_id:
+        return jsonify({"message": "Date et épreuve requises"}), 400
+
+    epreuve = Epreuve.query.get(epreuve_id)
+    if not epreuve:
+        return jsonify({"message": "Épreuve introuvable"}), 404
+
+    session_test = SessionTest.query.filter_by(date_test=date_str, epreuve_id=epreuve_id).first()
+
+    rows = []
+    if not session_test:
+        # Aucun test existant → tous les nageurs du coach (non testés = absents)
+        nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+        rows = [
+            {
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "temps": "",
+                "present": False
+            }
+            for n in nageurs
+        ]
+    else:
+        # Charger tous les résultats enregistrés pour cette session
+        resultats = (
+            db.session.query(
+                Nageur.id_nageur,
+                Nageur.nom,
+                Nageur.prenom,
+                Nageur.birth_year,
+                ResultatTest.temps
+            )
+            .join(ResultatTest, ResultatTest.nageur_id == Nageur.id_nageur)
+            .filter(ResultatTest.session_test_id == session_test.session_test_id)
+            .all()
+        )
+
+        ids_resultats = [r.id_nageur for r in resultats]
+
+        # Ajouter les nageurs du coach non encore testés (absents)
+        nageurs_restants = (
+            Nageur.query.filter_by(id_coach=coach.user_id)
+            .filter(~Nageur.id_nageur.in_(ids_resultats))
+            .all()
+        )
+
+        for r in resultats:
+            is_present = bool(r.temps and r.temps.strip() not in ["", "0", "ABS"])
+            rows.append({
+                "nom": r.nom,
+                "prenom": r.prenom,
+                "categorie": get_categorie_from_birth_year(r.birth_year),
+                "temps": r.temps if r.temps and r.temps != "0" else "",
+                "present": is_present
+            })
+
+        for n in nageurs_restants:
+            rows.append({
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "temps": "",
+                "present": False
+            })
+
+    # Tri alphabétique
+    rows.sort(key=lambda x: (x["nom"].lower(), x["prenom"].lower()))
+
+    # Génération du CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Nom", "Prénom", "Catégorie", "Temps", "Présence"])
+    for r in rows:
+        writer.writerow([
+            r["nom"],
+            r["prenom"],
+            r["categorie"],
+            r["temps"],
+            "Présent" if r["present"] else "Absent"
+        ])
+
+    output.seek(0)
+    filename = f"test_{date_str}_{epreuve.distance}m_{epreuve.nage}_{epreuve.genre}.csv"
+    return send_file(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
 
 @coach_bp.get("/tests/epreuves")
 def get_epreuves_tests():

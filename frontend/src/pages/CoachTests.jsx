@@ -273,6 +273,20 @@ export default function CoachTests() {
                                   >
                                      Enregistrer
                                   </Button>
+                                  
+                                  <Button
+                                  size="sm"
+                                  variant="outline-success"
+                                    onClick={() => {
+                                    const epreuveId = epreuves.find((e) => e.label === t.epreuve)?.epreuve_id;
+                                    window.open(
+                                      `http://localhost:5000/api/coach/tests/export?date=${t.date}&epreuve_id=${epreuveId}`,
+                                      "_blank"
+                                    );
+                                    }}
+                                    >
+                                    Télécharger
+                                  </Button>
                                 </div>
                                 <br></br>
                                 {/* 🔍 Barre de recherche */}

@@ -290,6 +290,17 @@ export default function CoachAbsences() {
                                     >
                                        Enregistrer
                                     </Button>
+                                    
+                                    <Button
+                                      size="sm"
+                                      variant="outline-success"
+                                      onClick={() => window.open(
+                                        `http://localhost:5000/api/coach/presences/export?date=${s.date}&session=${s.session}`,
+                                        "_blank"
+                                      )}
+                                    >
+                                    Télécharger
+                                    </Button>
                                   </div>
                                   <br></br>
                                   {/*  Barre de recherche locale */}
