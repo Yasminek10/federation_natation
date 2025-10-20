@@ -8,7 +8,7 @@ import MedalsCount from "../components/MedailCountNageur";
 import SwimmerInsights from "../components/SwimmerInsights";
 import "../styles/nageurDetails.css";
 export default function SwimmerDetails({ user }) {
-  const { nageurId } = useParams();
+  const { public_id } = useParams();
 
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -16,14 +16,15 @@ export default function SwimmerDetails({ user }) {
   const [activeTab, setActiveTab] = useState("individuels");
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/nageursDetails/${nageurId}`)
+    fetch(`http://localhost:5000/api/nageursDetails/${public_id}`)
       .then((res) => res.json())
+
       .then((res) => {
         setData(res);
         setLoading(false);
       })
       .catch((err) => console.error(err));
-  }, [nageurId]);
+  }, [public_id]);
 
   if (loading) return <Spinner animation="border" className="m-5" />;
 

@@ -15,7 +15,7 @@ import ClubAnalyses from "../components/ClubsAnalyses";
 import Navbar_Home from "../components/Navbar_Home";
 
 export default function ClubDetails({ user }) {
-  const { id } = useParams();
+  const { public_id } = useParams();
   const [club, setClub] = useState(null);
   const [swimmers, setSwimmers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +24,8 @@ export default function ClubDetails({ user }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch(`http://localhost:5000/api/clubs/${id}`).then((res) => res.json()),
-      fetch(`http://localhost:5000/api/clubs/${id}/nageurs`).then((res) =>
+      fetch(`http://localhost:5000/api/clubs/${public_id}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/clubs/${public_id}/nageurs`).then((res) =>
         res.json()
       ),
     ])
@@ -35,7 +35,7 @@ export default function ClubDetails({ user }) {
       })
       .catch((err) => console.error("Erreur fetch club ou nageurs:", err))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [public_id]);
 
   if (loading)
     return (
@@ -113,10 +113,10 @@ export default function ClubDetails({ user }) {
 
         <Tabs defaultActiveKey="swimmers" id="club-tabs" className="mb-3">
           <Tab eventKey="swimmers" title="🏊 Nageurs">
-            <SwimmersList clubId={id} />
+            <SwimmersList clubId={public_id} />
           </Tab>
           <Tab eventKey="analyses" title="📊 Analyses">
-            <ClubAnalyses clubId={id} />
+            <ClubAnalyses clubId={public_id} />
           </Tab>
         </Tabs>
       </div>

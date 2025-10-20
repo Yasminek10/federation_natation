@@ -15,10 +15,6 @@ import {
   Spinner,
   Table,
 } from "react-bootstrap";
-
-// Assure-toi d'avoir importé Bootstrap CSS (dans src/index.js) :
-// import 'bootstrap/dist/css/bootstrap.min.css';
-
 const API = {
   list: (params) =>
     fetch(`http://localhost:5000/api/swimmers/approvals?${params.toString()}`, {
@@ -54,7 +50,7 @@ export default function EligibilityPage() {
   // filtres
   const [search, setSearch] = useState("");
   const [onlyPending, setOnlyPending] = useState(false);
-  const [clubId, setClubId] = useState(null);
+  const [clubId, setClubId] = useState("");
   const [yearMin, setYearMin] = useState("");
   const [yearMax, setYearMax] = useState("");
   const [page, setPage] = useState(1);
@@ -82,7 +78,7 @@ export default function EligibilityPage() {
         page: String(page),
         page_size: String(PAGE_SIZE),
       });
-      if (clubId) params.set("club_id", String(clubId));
+      if (clubId) params.set("club_id", clubId);
       if (yearMin !== "") params.set("year_min", String(yearMin));
       if (yearMax !== "") params.set("year_max", String(yearMax));
 
@@ -101,54 +97,68 @@ export default function EligibilityPage() {
     load(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, onlyPending, clubId, yearMin, yearMax, page]);
 
-  const uniqueClubs = useMemo(() => {
-    const map = new Map();
-    rows.forEach((r) => {
-      if (r.club_id) map.set(r.club_id, r.club || `Club ${r.club_id}`);
-    });
-    return Array.from(map.entries()) // [ [id, name], ...]
-      .sort((a, b) => a[1].localeCompare(b[1]));
-  }, [rows]);
+const uniqueClubs = useMemo(() => {
+  const map = new Map();
+  rows.forEach((r) => {
+    if (r.club_id) map.set(r.club_id, r.club || `Club ${r.club_id}`);
+  });
+  return Array.from(map.entries())
+    .sort((a, b) => a[1].localeCompare(b[1]));
+}, [rows]);
+
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const onToggleOne = async (id, val) => {
     // optimistic update
-    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, eligible_points: !!val } : r)));
+    setRows((rs) =>
+      rs.map((r) => (r.id === id ? { ...r, eligible_points: !!val } : r))
+    );
     try {
       const res = await API.patchOne(id, val);
       if (!res.ok) throw new Error("Erreur sauvegarde");
       setMsg({ type: "success", text: "Mise à jour enregistrée." });
     } catch (e) {
       // rollback
-      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, eligible_points: !val } : r)));
+      setRows((rs) =>
+        rs.map((r) => (r.id === id ? { ...r, eligible_points: !val } : r))
+      );
       setMsg({ type: "error", text: "Échec de la mise à jour" });
     }
   };
 
-  const toggleSelectAllOnPage = (checked) => {
-    const next = new Set(selected);
-    if (checked) rows.forEach((r) => next.add(r.id));
-    else rows.forEach((r) => next.delete(r.id));
-    setSelected(next);
-  };
+const toggleSelectAllOnPage = (checked) => {
+  const next = new Set(selected);
+  if (checked) rows.forEach((r) => next.add(r.id)); // r.id is now UUID string
+  else rows.forEach((r) => next.delete(r.id));
+  setSelected(next);
+};
 
-  const toggleSelectOne = (id, checked) => {
-    const next = new Set(selected);
-    if (checked) next.add(id);
-    else next.delete(id);
-    setSelected(next);
-  };
+ const toggleSelectOne = (id, checked) => {
+  const next = new Set(selected);
+  if (checked) next.add(id);
+  else next.delete(id);
+  setSelected(next);
+};
 
   const bulkUpdate = async (eligible) => {
     if (selected.size === 0) return;
     // optimistic update
     const ids = Array.from(selected);
-    setRows((rs) => rs.map((r) => (ids.includes(r.id) ? { ...r, eligible_points: eligible } : r)));
+    setRows((rs) =>
+      rs.map((r) =>
+        ids.includes(r.id) ? { ...r, eligible_points: eligible } : r
+      )
+    );
     try {
-      const resp = await API.bulk(ids.map((id) => ({ id, eligible_points: eligible })));
+      const resp = await API.bulk(
+        ids.map((id) => ({ id, eligible_points: eligible }))
+      );
       if (resp.status !== "ok") throw new Error("Erreur bulk");
-      setMsg({ type: "success", text: `${resp.updated ?? ids.length} nageur(s) mis à jour.` });
+      setMsg({
+        type: "success",
+        text: `${resp.updated ?? ids.length} nageur(s) mis à jour.`,
+      });
       setSelected(new Set());
     } catch (e) {
       // en cas d'échec, recharger la page pour resync
@@ -182,12 +192,27 @@ export default function EligibilityPage() {
       <Row className="align-items-center mb-3 g-2">
         <Col>
           <h2 className="h4 mb-0">Éligibilité des points</h2>
-          <div className="text-muted small">Gérer l'autorisation de points pour les nageurs non tunisiens.</div>
+          <div className="text-muted small">
+            Gérer l'autorisation de points pour les nageurs non tunisiens.
+          </div>
         </Col>
-        <Col xs="12" md="auto" className="d-flex gap-2 justify-content-md-end mt-2 mt-md-0">
-          <Button variant="outline-secondary" onClick={clearFilters}>Réinitialiser</Button>
+        <Col
+          xs="12"
+          md="auto"
+          className="d-flex gap-2 justify-content-md-end mt-2 mt-md-0"
+        >
+          <Button variant="outline-secondary" onClick={clearFilters}>
+            Réinitialiser
+          </Button>
           <Button variant="secondary" onClick={load} disabled={loading}>
-            {loading ? (<><Spinner size="sm" animation="border" className="me-2"/>Actualisation…</>) : "Actualiser"}
+            {loading ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Actualisation…
+              </>
+            ) : (
+              "Actualiser"
+            )}
           </Button>
         </Col>
       </Row>
@@ -209,16 +234,24 @@ export default function EligibilityPage() {
             </Col>
             <Col md={3}>
               <Form.Label>Club (page courante)</Form.Label>
-              <Form.Select
-                value={clubId || ""}
-                onChange={(e) => { setPage(1); setClubId(e.target.value ? Number(e.target.value) : null); }}
-              >
+             <Form.Select
+  value={clubId}
+  onChange={(e) => {
+    setPage(1);
+    setClubId(e.target.value); // keep as string
+  }}
+>
+
                 <option value="">Tous les clubs</option>
                 {uniqueClubs.map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
                 ))}
               </Form.Select>
-              <Form.Text muted className="mt-1">La liste se base sur la page chargée.</Form.Text>
+              <Form.Text muted className="mt-1">
+                La liste se base sur la page chargée.
+              </Form.Text>
             </Col>
             <Col md={2}>
               <Form.Label>Année min.</Form.Label>
@@ -228,7 +261,10 @@ export default function EligibilityPage() {
                 max={CURRENT_YEAR}
                 placeholder="ex: 2006"
                 value={yearMin}
-                onChange={(e) => { setPage(1); setYearMin(e.target.value.replace(/[^0-9]/g, "")); }}
+                onChange={(e) => {
+                  setPage(1);
+                  setYearMin(e.target.value.replace(/[^0-9]/g, ""));
+                }}
               />
             </Col>
             <Col md={2}>
@@ -239,7 +275,10 @@ export default function EligibilityPage() {
                 max={CURRENT_YEAR}
                 placeholder="ex: 2010"
                 value={yearMax}
-                onChange={(e) => { setPage(1); setYearMax(e.target.value.replace(/[^0-9]/g, "")); }}
+                onChange={(e) => {
+                  setPage(1);
+                  setYearMax(e.target.value.replace(/[^0-9]/g, ""));
+                }}
               />
             </Col>
             <Col md={3}>
@@ -248,14 +287,20 @@ export default function EligibilityPage() {
                 id="only-pending"
                 label="Seulement à approuver."
                 checked={onlyPending}
-                onChange={(e) => { setPage(1); setOnlyPending(e.target.checked); }}
+                onChange={(e) => {
+                  setPage(1);
+                  setOnlyPending(e.target.checked);
+                }}
               />
             </Col>
           </Row>
           <div className="mt-2 small text-muted">{total} résultat(s)</div>
           {selectedCount > 0 && (
             <div className="small">
-              <Badge bg="primary" className="me-1">{selectedCount}</Badge> sélectionné(s)
+              <Badge bg="primary" className="me-1">
+                {selectedCount}
+              </Badge>{" "}
+              sélectionné(s)
             </div>
           )}
         </Card.Body>
@@ -285,13 +330,23 @@ export default function EligibilityPage() {
 
       {/* Table */}
       <div className="table-responsive">
-        <Table hover bordered className="align-middle" style={{ minWidth: 760 }}>
-          <thead className="table-light" style={{ position: "sticky", top: 0, zIndex: 1 }}>
+        <Table
+          hover
+          bordered
+          className="align-middle"
+          style={{ minWidth: 760 }}
+        >
+          <thead
+            className="table-light"
+            style={{ position: "sticky", top: 0, zIndex: 1 }}
+          >
             <tr>
               <th style={{ width: 46 }} className="text-center">
                 <Form.Check
                   type="checkbox"
-                  checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+                  checked={
+                    rows.length > 0 && rows.every((r) => selected.has(r.id))
+                  }
                   onChange={(e) => toggleSelectAllOnPage(e.target.checked)}
                   disabled={!isAdmin || rows.length === 0}
                 />
@@ -300,7 +355,9 @@ export default function EligibilityPage() {
               <th>Club</th>
               <th style={{ width: 90 }}>Année</th>
               <th>Nationalité</th>
-              <th style={{ width: 170 }} className="text-center">Éligible points</th>
+              <th style={{ width: 170 }} className="text-center">
+                Éligible points
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -315,7 +372,9 @@ export default function EligibilityPage() {
                     disabled={!isAdmin}
                   />
                 </td>
-                <td className="fw-semibold">{r.nom} {r.prenom}</td>
+                <td className="fw-semibold">
+                  {r.nom} {r.prenom}
+                </td>
                 <td>{r.club}</td>
                 <td>{r.birth_year ?? "—"}</td>
                 <td>
@@ -339,7 +398,9 @@ export default function EligibilityPage() {
             ))}
             {sortedRows.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4">Aucun nageur.</td>
+                <td colSpan={6} className="text-center text-muted py-4">
+                  Aucun nageur.
+                </td>
               </tr>
             )}
           </tbody>
@@ -360,7 +421,9 @@ export default function EligibilityPage() {
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
             />
           </Pagination>
-          <div className="ms-3 small text-muted align-self-center">Page {page} / {pages}</div>
+          <div className="ms-3 small text-muted align-self-center">
+            Page {page} / {pages}
+          </div>
         </div>
       )}
 
@@ -368,7 +431,11 @@ export default function EligibilityPage() {
       {msg && (
         <Row className="mt-3">
           <Col>
-            <Alert variant={msg.type === "error" ? "danger" : "success"} onClose={() => setMsg(null)} dismissible>
+            <Alert
+              variant={msg.type === "error" ? "danger" : "success"}
+              onClose={() => setMsg(null)}
+              dismissible
+            >
               {msg.text}
             </Alert>
           </Col>

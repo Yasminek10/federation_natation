@@ -9,19 +9,27 @@ import {
 } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
 // liste des nageurs d'un club avec recherche, filtre, pagination
-export default function SwimmersList({ clubId }) {
+export default function SwimmersList() {
   const navigate = useNavigate();
   const [swimmers, setSwimmers] = useState([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Toutes");
+  const { public_id } = useParams();
   //const { clubId } = useParams();
 
-  useEffect(() => {
-    fetch(`http://localhost:5000/api/clubs/${clubId}/nageurs`)
-      .then((res) => res.json())
-      .then((data) => setSwimmers(data))
-      .catch((err) => console.error("Erreur fetch swimmers:", err));
-  }, [clubId]);
+useEffect(() => {
+  console.log("public_id reçu du router:", public_id);
+  if (!public_id) return;
+
+  fetch(`http://localhost:5000/api/clubs/${public_id}/nageurs`)
+    .then((res) => {
+      console.log("URL appelée:", res.url);
+      return res.json();
+    })
+    .then((data) => setSwimmers(data))
+    .catch((err) => console.error("Erreur fetch swimmers:", err));
+}, [public_id]);
+
 
   // ✅ Filtrage
   const filteredSwimmers = useMemo(() => {
@@ -91,11 +99,11 @@ export default function SwimmersList({ clubId }) {
           <tbody>
             {currentItems.length > 0 ? (
               currentItems.map((s) => (
-                <tr key={s.id}>
+                <tr key={s.public_id}>
                   <td
                     className="fw-semibold"
                     style={{ cursor: "pointer", color: "#0e3e84" }}
-                    onClick={() => navigate(`/nageurs/${s.id}`)}
+                    onClick={() => navigate(`/nageurs/${s.public_id}`)}
                   >
                     {s.nom} {s.prenom}
                   </td>

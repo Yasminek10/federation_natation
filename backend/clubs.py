@@ -17,7 +17,7 @@ def get_clubs():
     for c in clubs:
         nageurs_count = db.session.query(Nageur).filter_by(id_club=c.id_club).count()
         result.append({
-            "id": c.id_club,
+            "public_id": str(c.public_id),
             "nom": c.nom,
             "nbre_nageurs": nageurs_count
         })
@@ -26,21 +26,21 @@ def get_clubs():
 # ===============================
 # Détails d’un club
 # ===============================
-@clubs_bp.route("/<int:id_club>", methods=["GET"])
-def get_club_by_id(id_club):
-    club = Club.query.get(id_club)
+@clubs_bp.route("/<uuid:public_id>", methods=["GET"])
+def get_club_by_id(public_id):
+    club = Club.query.filter_by(public_id=public_id).first_or_404()
     return jsonify({
-        "id": club.id_club,
+        "public_id": str(club.public_id),
         "nom": club.nom
     })
 
 # ===============================
 # Liste des nageurs d’un club
 # ===============================
-@clubs_bp.route("/<int:club_id>/nageurs", methods=["GET"])
-def get_nageurs_by_club(club_id):
-    nageurs = db.session.query(Nageur).filter_by(id_club=club_id).all()
-
+@clubs_bp.route("/<uuid:public_id>/nageurs", methods=["GET"])
+def get_nageurs_by_club(public_id):
+    club = Club.query.filter_by(public_id=public_id).first_or_404()
+    nageurs = Nageur.query.filter_by(id_club=club.id_club).all()
     data = []
     for n in nageurs:
         genre = None
@@ -53,6 +53,7 @@ def get_nageurs_by_club(club_id):
 
         data.append({
             "id": n.id_nageur,
+            "public_id": n.public_id,
             "nom": n.nom,
             "prenom": n.prenom,
             "full_name": f"{n.prenom} {n.nom}",
@@ -62,7 +63,7 @@ def get_nageurs_by_club(club_id):
             "genre": "F" if genre == "Dames" else "M",
             "categorie": categorie
         })
-
+     
     return jsonify(data)
 
 # ===============================
@@ -103,8 +104,10 @@ def get_all_nageurs():
 # ===============================
 # Analyses par club
 # ===============================
-@clubs_bp.route("/<int:id_club>/analyses", methods=["GET"])
-def analyses_par_club(id_club):
+@clubs_bp.route("/<uuid:public_id>/analyses", methods=["GET"])
+def analyses_par_club(public_id):
+    club = Club.query.filter_by(public_id=public_id).first_or_404()
+    id_club = club.id_club
     # 1. Médailles par genre
     medailles_par_genre = (
         db.session.query(
@@ -173,9 +176,7 @@ def analyses_par_club(id_club):
     classement_par_saison_data = [
         {"saison": c[0], "medailles": c[1]} for c in classement_par_saison
     ]
-
-
-    club = Club.query.get(id_club)
+   
     females, males = [], []
 
     for n in club.nageurs:

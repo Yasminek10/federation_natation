@@ -1,18 +1,15 @@
 # backend/championnats.py
 from flask import Blueprint, jsonify
-from db import db
 from db import db, Championnat, CEC, Epreuve, Categorie
 
 champ_bp = Blueprint("champ", __name__, url_prefix="/api/championnats")
-
-
 
 @champ_bp.get("/")
 def get_championnats():
     ch = Championnat.query.all()
     return jsonify([
         {
-            "id": c.champ_id,
+            "id":c.public_id,
             "nom": c.nom,
             "saison": c.saison,
             "lieu": c.lieu,
@@ -23,25 +20,27 @@ def get_championnats():
     ])
 
 
-@champ_bp.get("/<int:champ_id>/epreuves")
-def get_epreuves(champ_id):
+@champ_bp.get("/<uuid:public_id>/epreuves")
+def get_epreuves(public_id):
+    champ = Championnat.query.filter_by(public_id=public_id).first_or_404()
+    
     epreuves = (
         db.session.query(
-            Epreuve.epreuve_id,
+            Epreuve.public_id,  # ✅ on n’utilise plus epreuve_id
             Epreuve.nage,
             Epreuve.distance,
             Epreuve.genre,
             Epreuve.is_relay
         )
         .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
-        .filter(CEC.champ_id == champ_id)
-        .distinct()  # ici ça déduplique sur les colonnes choisies
+        .filter(CEC.champ_id == champ.champ_id)
+        .distinct()
         .all()
     )
 
     return jsonify([
         {
-            "epreuve_id": e.epreuve_id,
+            "public_id": e.public_id,
             "nage": e.nage,
             "distance": e.distance,
             "genre": e.genre,
@@ -49,7 +48,6 @@ def get_epreuves(champ_id):
         }
         for e in epreuves
     ])
-
 
 
 
@@ -62,6 +60,7 @@ def get_championnats():
     return jsonify([{
         "id": c.champ_id,
         "nom": c.nom,
+        "public_id": c.public_id,
         "saison": c.saison,
         "datedeb": c.datedeb.isoformat(),
         "datefin": c.datefin.isoformat(),

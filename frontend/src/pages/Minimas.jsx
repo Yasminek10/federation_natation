@@ -68,15 +68,16 @@ export default function Minimas() {
   useEffect(() => {
     fetch("http://localhost:5000/api/minimas/")
       .then((res) => res.json())
-      .then((json) => {
-        const mapped = json.map((item) => ({
-          min_id: item.min_id,
-          categorie: item.categorie,
-          epreuve: item.epreuve,
-          temps: item.temp_min || item.tps_min,
-        }));
-        setData(mapped);
-      })
+.then((json) => {
+  const mapped = json.map((item) => ({
+    min_id: item.min_id,
+    categorie: item.categorie,
+    epreuve: item.epreuve,
+    temps: item.temp_min, // ✅ unified key
+  }));
+  setData(mapped);
+})
+
       .catch((err) => console.error(err));
   }, []);
 

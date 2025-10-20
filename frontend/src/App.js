@@ -37,33 +37,36 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/clubs/:id_club/analyses" element={<ClubAnalyses />} />
+      <Route path="/clubs/:public_id/analyses" element={<ClubAnalyses />} />
       <Route path="/home" element={<Home user={currentUser} />} />
       <Route path="/login" element={<Login />} />
       <Route path="/clubs" element={<ClubsList user={currentUser} />} />
       <Route path="/nageurs" element={<TousNageurs user={currentUser} />} />
       <Route
-        path="/nageurs/:nageurId"
+        path="/nageurs/:public_id"
         element={<SwimmerDetails user={currentUser} />}
       />
 
-     
       <Route
         path="/championnats"
         element={<Championnats user={currentUser} />}
       />
       <Route
-        path="/championnats/:champId/epreuves"
+        path="/championnats/:public_id/epreuves"
         element={<Epreuves user={currentUser} />}
       />
       <Route
-        path="/epreuves/:epreuveId/resultats"
+        path="/epreuves/:public_id/resultats"
         element={<Resultats user={currentUser} />}
       />
-
-       <Route path="/epreuves/:epreuveId/cumul" 
-       element={<CumulPoints user={currentUser} />} />
-       <Route path="/statistiques/:id" element={<Statistiques user={currentUser} />} />
+      <Route
+        path="/epreuves/:public_id/cumul"
+        element={<CumulPoints user={currentUser} />}
+      />
+      <Route
+        path="/statistiques/:public_id"
+        element={<Statistiques user={currentUser} />}
+      />
 
       {/* /login accessible seulement si NON connecté */}
       <Route
@@ -84,7 +87,10 @@ export default function App() {
           </RequireAuth>
         }
       />
-      <Route path="/clubs/:id" element={<ClubDetails user={currentUser}/>} />
+      <Route
+        path="/clubs/:public_id"
+        element={<ClubDetails user={currentUser} />}
+      />
 
       <Route
         path="/admin-dashboard"
@@ -166,7 +172,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<div className="p-4">Page introuvable</div>} />
       <Route path="/import" element={<ImportResults />} />
-      <Route path="/championnats/:champId/epreuves" element={<Epreuves />} />
+      <Route path="/championnats/:public_id/epreuves" element={<Epreuves />} />
 
       {/* add other pages later */}
     </Routes>

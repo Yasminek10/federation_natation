@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, Table, Badge, Spinner, Button } from "react-bootstrap";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -18,7 +18,11 @@ import {
 } from "recharts";
 
 /* ---------- ChartCard: wrapper propre et responsive ---------- */
-const ChartCard = ({ title, children, colSize = "col-12 col-md-6 col-lg-5" }) => (
+const ChartCard = ({
+  title,
+  children,
+  colSize = "col-12 col-md-6 col-lg-5",
+}) => (
   <div className={colSize}>
     <Card
       className="shadow-sm border-0 h-100"
@@ -28,7 +32,10 @@ const ChartCard = ({ title, children, colSize = "col-12 col-md-6 col-lg-5" }) =>
       }}
     >
       <Card.Body>
-        <h6 className="fw-bold text-primary mb-3" style={{ fontSize: "0.95rem" }}>
+        <h6
+          className="fw-bold text-primary mb-3"
+          style={{ fontSize: "0.95rem" }}
+        >
           {title}
         </h6>
         {children}
@@ -56,11 +63,16 @@ const ChartPlaceholder = ({ message = "Aucune donnée", height = 250 }) => (
 
 /* ---------- Affichage mobile en cartes ---------- */
 const MobileList = ({ items, renderItem }) => {
-  if (!items || items.length === 0) return <div className="text-muted">Aucune donnée</div>;
+  if (!items || items.length === 0)
+    return <div className="text-muted">Aucune donnée</div>;
   return (
     <div className="d-block d-md-none">
       {items.map((it, idx) => (
-        <Card key={it.id ?? idx} className="mb-2 shadow-sm" style={{ borderRadius: 12 }}>
+        <Card
+          key={it.public_id ?? idx}
+          className="mb-2 shadow-sm"
+          style={{ borderRadius: 12 }}
+        >
           <Card.Body className="p-2">{renderItem(it, idx)}</Card.Body>
         </Card>
       ))}
@@ -68,9 +80,11 @@ const MobileList = ({ items, renderItem }) => {
   );
 };
 
-export default function ClubAnalyses({ clubId }) {
+export default function ClubAnalyses() {
   const navigate = useNavigate();
-  const pdfRef = useRef(); 
+  const pdfRef = useRef();
+  const { public_id } = useParams();
+  console.log("public_id:", public_id);
 
   const [data, setData] = useState({
     relais_or: [],
@@ -87,10 +101,10 @@ export default function ClubAnalyses({ clubId }) {
   const COLORS = ["#0ea5e9", "#3b82f6", "#6366f1", "#22d3ee", "#38bdf8"];
 
   useEffect(() => {
+    if (!public_id) return;
     let mounted = true;
     setLoading(true);
-
-    fetch(`http://localhost:5000/api/clubs/${clubId}/analyses`)
+    fetch(`http://localhost:5000/api/clubs/${public_id}/analyses`)
       .then((res) => res.json())
       .then((d) => {
         if (!mounted) return;
@@ -121,8 +135,10 @@ export default function ClubAnalyses({ clubId }) {
       })
       .finally(() => mounted && setLoading(false));
 
-    return () => { mounted = false; };
-  }, [clubId]);
+    return () => {
+      mounted = false;
+    };
+  }, [public_id]);
 
   const downloadPDF = () => {
     const input = pdfRef.current;
@@ -133,14 +149,18 @@ export default function ClubAnalyses({ clubId }) {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`club_${clubId}_analyses.pdf`);
+      pdf.save(`club_${clubName}_analyses.pdf`);
     });
   };
 
   if (loading) {
     return (
       <div className="text-center py-5">
-        <Spinner animation="border" role="status" style={{ width: 48, height: 48 }} />
+        <Spinner
+          animation="border"
+          role="status"
+          style={{ width: 48, height: 48 }}
+        />
         <p className="mt-3 text-secondary">Chargement des analyses...</p>
       </div>
     );
@@ -165,7 +185,11 @@ export default function ClubAnalyses({ clubId }) {
                 <XAxis dataKey="genre" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="nb_medailles" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="nb_medailles"
+                  fill="#0ea5e9"
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -174,24 +198,23 @@ export default function ClubAnalyses({ clubId }) {
         </ChartCard>
 
         {/* Classement par saison */}
-   {/* Classement par saison */}
-<ChartCard title="📅 Classement par saison">
-  {data.classement_par_saison?.length > 0 ? (
-    <ResponsiveContainer width="100%" height={250}>
-      <BarChart data={data.classement_par_saison}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        {/* changer dataKey de "annee" à "saison" */}
-        <XAxis dataKey="saison" />
-        <YAxis />
-        <Tooltip />
-        <Bar dataKey="medailles" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  ) : (
-    <ChartPlaceholder />
-  )}
-</ChartCard>
-
+        {/* Classement par saison */}
+        <ChartCard title="📅 Classement par saison">
+          {data.classement_par_saison?.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={data.classement_par_saison}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                {/* changer dataKey de "annee" à "saison" */}
+                <XAxis dataKey="saison" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="medailles" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <ChartPlaceholder />
+          )}
+        </ChartCard>
 
         {/* Médailles par catégorie */}
         <ChartCard title="📊 Médailles par catégorie">
@@ -229,7 +252,11 @@ export default function ClubAnalyses({ clubId }) {
                 <XAxis dataKey="nage" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="nb_medailles" fill="#22d3ee" radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="nb_medailles"
+                  fill="#22d3ee"
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -240,7 +267,11 @@ export default function ClubAnalyses({ clubId }) {
         {/* Top Females */}
         <ChartCard title="🏊 Top 10 Females">
           <div className="table-responsive d-none d-md-block">
-            <Table hover className="align-middle mb-0" style={{ background: "#f8fafc" }}>
+            <Table
+              hover
+              className="align-middle mb-0"
+              style={{ background: "#f8fafc" }}
+            >
               <thead style={{ background: "#0ea5e9", color: "white" }}>
                 <tr>
                   <th>#</th>
@@ -255,7 +286,7 @@ export default function ClubAnalyses({ clubId }) {
                     <td
                       className="text-uppercase"
                       style={{ cursor: "pointer", color: "#174ea6" }}
-                      onClick={() => navigate(`/nageurs/${n.id}`)}
+                      onClick={() => navigate(`/nageurs/${n.public_id}`)}
                     >
                       {n.full_name}
                     </td>
@@ -272,15 +303,24 @@ export default function ClubAnalyses({ clubId }) {
             renderItem={(n, idx) => (
               <div className="d-flex justify-content-between align-items-start">
                 <div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>#{idx + 1}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    #{idx + 1}
+                  </div>
                   <div
                     onClick={() => navigate(`/nageurs/${n.id}`)}
-                    style={{ cursor: "pointer", fontWeight: 600, textTransform: "uppercase", color: "#174ea6" }}
+                    style={{
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      color: "#174ea6",
+                    }}
                   >
                     {n.full_name}
                   </div>
                 </div>
-                <Badge bg="primary" pill>{n.points_total}</Badge>
+                <Badge bg="primary" pill>
+                  {n.points_total}
+                </Badge>
               </div>
             )}
           />
@@ -289,7 +329,11 @@ export default function ClubAnalyses({ clubId }) {
         {/* Top Males */}
         <ChartCard title="🏊 Top 10 Males">
           <div className="table-responsive d-none d-md-block">
-            <Table hover className="align-middle mb-0" style={{ background: "#f8fafc" }}>
+            <Table
+              hover
+              className="align-middle mb-0"
+              style={{ background: "#f8fafc" }}
+            >
               <thead style={{ background: "#3b82f6", color: "white" }}>
                 <tr>
                   <th>#</th>
@@ -299,7 +343,7 @@ export default function ClubAnalyses({ clubId }) {
               </thead>
               <tbody>
                 {data.top_males?.map((n, idx) => (
-                  <tr key={n.id ?? idx}>
+                  <tr key={n.public_id ?? idx}>
                     <td>{idx + 1}</td>
                     <td
                       className="text-uppercase"
@@ -321,15 +365,24 @@ export default function ClubAnalyses({ clubId }) {
             renderItem={(n, idx) => (
               <div className="d-flex justify-content-between align-items-start">
                 <div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>#{idx + 1}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    #{idx + 1}
+                  </div>
                   <div
                     onClick={() => navigate(`/nageurs/${n.id}`)}
-                    style={{ cursor: "pointer", fontWeight: 600, textTransform: "uppercase", color: "#174ea6" }}
+                    style={{
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      color: "#174ea6",
+                    }}
                   >
                     {n.full_name}
                   </div>
                 </div>
-                <Badge bg="info" pill>{n.points_total}</Badge>
+                <Badge bg="info" pill>
+                  {n.points_total}
+                </Badge>
               </div>
             )}
           />
@@ -338,8 +391,20 @@ export default function ClubAnalyses({ clubId }) {
         {/* Relais d'or */}
         <ChartCard title="🥇 Médailles d’or en relais" colSize="col-12">
           {data.relais_or?.length > 0 ? (
-            <div style={{ maxHeight: 500, overflowY: "auto", borderRadius: 12, border: "1px solid #e5e7eb" }}>
-              <Table hover responsive className="align-middle mb-0" style={{ background: "#ffffff", fontSize: "0.9rem" }}>
+            <div
+              style={{
+                maxHeight: 500,
+                overflowY: "auto",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <Table
+                hover
+                responsive
+                className="align-middle mb-0"
+                style={{ background: "#ffffff", fontSize: "0.9rem" }}
+              >
                 <thead style={{ background: "#16a34a", color: "white" }}>
                   <tr>
                     <th>#</th>
@@ -357,7 +422,11 @@ export default function ClubAnalyses({ clubId }) {
                       <td>{r.epreuve}</td>
                       <td>{r.categorie}</td>
                       <td>{r.saison}</td>
-                      <td><Badge bg="success" pill>{r.temps}</Badge></td>
+                      <td>
+                        <Badge bg="success" pill>
+                          {r.temps}
+                        </Badge>
+                      </td>
                       <td>{r.competition}</td>
                     </tr>
                   ))}
@@ -365,7 +434,9 @@ export default function ClubAnalyses({ clubId }) {
               </Table>
             </div>
           ) : (
-            <p className="text-muted text-center my-3">Aucun résultat disponible pour le moment.</p>
+            <p className="text-muted text-center my-3">
+              Aucun résultat disponible pour le moment.
+            </p>
           )}
         </ChartCard>
       </div>

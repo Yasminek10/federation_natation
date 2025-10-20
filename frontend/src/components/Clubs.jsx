@@ -48,9 +48,9 @@ export default function ClubsList({ user }) {
         <div className="clubs-grid">
           {currentClubs.map((club) => (
             <Card
-              key={club.id}
+              key={club.public_id}
               className="club-card shadow-sm border-0"
-              onClick={() => navigate(`/clubs/${club.id}`)}
+              onClick={() => navigate(`/clubs/${club.public_id}`)}
             >
               <Card.Body className="d-flex flex-column align-items-center justify-content-center">
                 <Card.Title className="text-center fw-bold">

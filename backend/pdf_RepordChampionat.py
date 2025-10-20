@@ -1,4 +1,4 @@
-from flask import Blueprint, send_file, jsonify 
+from flask import Blueprint, send_file, jsonify
 import requests
 from io import BytesIO
 from reportlab.lib.pagesizes import A4, landscape
@@ -8,13 +8,12 @@ from reportlab.platypus import (
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
-from reportlab.graphics.shapes import Drawing, String
-
 import os
 from datetime import datetime
 
 pdf_report_bp = Blueprint("pdf_report_bp", __name__)
 API_BASE = os.environ.get("API_BASE", "http://localhost:5000")
+
 
 def _header_footer(canvas, doc):
     """En-tête & pied de page PDF."""
@@ -26,12 +25,16 @@ def _header_footer(canvas, doc):
     canvas.drawRightString(width - 30, 20, f"Généré le {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     canvas.restoreState()
 
-@pdf_report_bp.route("/api/pdf/report/<int:championnat_id>")
-def generate_pdf_report(championnat_id):
+
+@pdf_report_bp.route("/api/pdf/report/<uuid:public_id>")
+def generate_pdf_report(public_id):
+    """
+    Génère un rapport PDF du championnat basé sur le public_id (UUID)
+    """
     try:
-        # 1️⃣ Récupération des données
-        s_res = requests.get(f"{API_BASE}/api/epreuves/statistiques/cumul/{championnat_id}", timeout=10)
-        c_res = requests.get(f"{API_BASE}/api/bilan/cumul_points_clubs/{championnat_id}", timeout=10)
+        # 1️⃣ Récupération des données via API
+        s_res = requests.get(f"{API_BASE}/api/epreuves/statistiques/cumul/{public_id}", timeout=10)
+        c_res = requests.get(f"{API_BASE}/api/bilan/cumul_points_clubs/{public_id}", timeout=10)
         s_res.raise_for_status()
         c_res.raise_for_status()
         stats = s_res.json() or []
@@ -43,20 +46,38 @@ def generate_pdf_report(championnat_id):
         for cat in categories:
             for cl in (cat.get("classement") or []):
                 total_points[cl.get("club")] = total_points.get(cl.get("club"), 0) + (cl.get("points") or 0)
-        top_clubs = sorted([{"club": k, "points": v} for k, v in total_points.items()], key=lambda x: x["points"], reverse=True)
+
+        top_clubs = sorted(
+            [{"club": k, "points": v} for k, v in total_points.items()],
+            key=lambda x: x["points"],
+            reverse=True,
+        )
         top3 = top_clubs[:3]
         top_club = top_clubs[0] if top_clubs else {"club": "-", "points": 0}
 
         # 3️⃣ Préparation du document
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=40, leftMargin=40, topMargin=60, bottomMargin=40)
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            rightMargin=40,
+            leftMargin=40,
+            topMargin=60,
+            bottomMargin=40,
+        )
         elements = []
 
-        # Styles centrés et modernes
+        # Styles
         styles = getSampleStyleSheet()
-        styleH = ParagraphStyle('Heading', parent=styles['Heading1'], fontSize=18, textColor=colors.darkblue, alignment=TA_CENTER)
-        styleSub = ParagraphStyle('SubHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.darkred, alignment=TA_CENTER)
-        styleN = ParagraphStyle('Normal', parent=styles['Normal'], fontSize=11, leading=16, alignment=TA_CENTER)
+        styleH = ParagraphStyle(
+            'Heading', parent=styles['Heading1'], fontSize=18, textColor=colors.darkblue, alignment=TA_CENTER
+        )
+        styleSub = ParagraphStyle(
+            'SubHeading', parent=styles['Heading2'], fontSize=14, textColor=colors.darkred, alignment=TA_CENTER
+        )
+        styleN = ParagraphStyle(
+            'Normal', parent=styles['Normal'], fontSize=11, leading=16, alignment=TA_CENTER
+        )
 
         # 4️⃣ En-tête du rapport
         elements.append(Spacer(1, 50))
@@ -119,17 +140,13 @@ def generate_pdf_report(championnat_id):
                 elements.append(Spacer(1, 20))
             elements.append(PageBreak())
 
-        # 8️⃣ Répartition Dames + Pie Chart
+        # 8️⃣ Répartition Dames
         if stats:
             elements.append(Paragraph("<b>Répartition — Dames par épreuve</b>", styleSub))
             elements.append(Spacer(1, 10))
             data_dames = [["Distance", "Nage", "Cumul Dames"]]
-            dames_data = {}
             for s in stats:
-                label = f"{s.get('distance')}m {s.get('nage')}"
-                value = s.get('dames', 0)
-                dames_data[label] = value
-                data_dames.append([f"{s.get('distance')}m", s.get('nage'), value])
+                data_dames.append([f"{s.get('distance')}m", s.get('nage'), s.get('dames', 0)])
             table_dames = Table(data_dames, hAlign='CENTER', colWidths=[100, 150, 120])
             table_dames.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.pink),
@@ -140,19 +157,14 @@ def generate_pdf_report(championnat_id):
             ]))
             elements.append(table_dames)
             elements.append(Spacer(1, 20))
-          
 
-        # 9️⃣ Répartition Messieurs + Pie Chart
+        # 9️⃣ Répartition Messieurs
         if stats:
             elements.append(Paragraph("<b>Répartition — Messieurs par épreuve</b>", styleSub))
             elements.append(Spacer(1, 10))
             data_messieurs = [["Distance", "Nage", "Cumul Messieurs"]]
-            messieurs_data = {}
             for s in stats:
-                label = f"{s.get('distance')}m {s.get('nage')}"
-                value = s.get('messieurs', 0)
-                messieurs_data[label] = value
-                data_messieurs.append([f"{s.get('distance')}m", s.get('nage'), value])
+                data_messieurs.append([f"{s.get('distance')}m", s.get('nage'), s.get('messieurs', 0)])
             table_messieurs = Table(data_messieurs, hAlign='CENTER', colWidths=[100, 150, 120])
             table_messieurs.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
@@ -163,7 +175,7 @@ def generate_pdf_report(championnat_id):
             ]))
             elements.append(table_messieurs)
             elements.append(Spacer(1, 20))
-           
+
         # 🔟 Génération du PDF
         doc.build(elements, onFirstPage=_header_footer, onLaterPages=_header_footer)
         buffer.seek(0)

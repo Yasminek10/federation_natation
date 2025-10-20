@@ -6,20 +6,21 @@ import Navbar_Home from "../components/Navbar_Home";
 import ButtonBack from "../components/ButtonBack";
 
 function Epreuves({ user }) {
-  const { champId } = useParams();
+  const { public_id } = useParams();
   const [epreuves, setEpreuves] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/championnats/${champId}/epreuves`)
+
+    fetch(`http://localhost:5000/api/championnats/${public_id}/epreuves`)
       .then((res) => res.json())
       .then((data) => {
         setEpreuves(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [champId]);
+  }, [public_id]);
 
   return (
     <div>
@@ -27,35 +28,33 @@ function Epreuves({ user }) {
       <Navbar_Home user={user} />
 
       <Container className="mt-5">
-        
-       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-  {/* === Left side (title) === */}
-  <div className="d-flex align-items-center gap-3">
-    <div>
-      <h2 className="fw-bold text-primary mb-1 d-flex align-items-center gap-2">
-        <Trophy size={32} className="text-warning" />
-        Épreuves du Championnat
-      </h2>
-      <p className="text-muted mb-0">
-        Cliquez sur une épreuve pour voir les résultats détaillés
-      </p>
-    </div>
-  </div>
+        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+          {/* === Left side (title) === */}
+          <div className="d-flex align-items-center gap-3">
+            <div>
+              <h2 className="fw-bold text-primary mb-1 d-flex align-items-center gap-2">
+                <Trophy size={32} className="text-warning" />
+                Épreuves du Championnat
+              </h2>
+              <p className="text-muted mb-0">
+                Cliquez sur une épreuve pour voir les résultats détaillés
+              </p>
+            </div>
+          </div>
 
-  {/* === Right side (buttons) === */}
-  <div className="d-flex align-items-center gap-2">
-    <Button
-      variant="success"
-      className="px-4 py-2 fw-bold shadow-sm"
-      onClick={() => navigate(`/statistiques/${champId}`)}
-    >
-      <BarChart3 size={20} className="me-2" />
-      Afficher les statistiques
-    </Button>
-    <ButtonBack />
-  </div>
-</div>
-
+          {/* === Right side (buttons) === */}
+          <div className="d-flex align-items-center gap-2">
+            <Button
+              variant="success"
+              className="px-4 py-2 fw-bold shadow-sm"
+              onClick={() => navigate(`/statistiques/${public_id}`)}
+            >
+              <BarChart3 size={20} className="me-2" />
+              Afficher les statistiques
+            </Button>
+            <ButtonBack />
+          </div>
+        </div>
 
         {/* ===== Liste des épreuves ===== */}
         <Card className="shadow-lg border-0 rounded-3">
@@ -71,7 +70,7 @@ function Epreuves({ user }) {
                     key={e.id}
                     action
                     onClick={() =>
-                      navigate(`/epreuves/${e.epreuve_id}/resultats`)
+                      navigate(`/epreuves/${e.public_id}/resultats`)
                     }
                     className="py-3 fw-semibold d-flex justify-content-between align-items-center list-hover"
                   >

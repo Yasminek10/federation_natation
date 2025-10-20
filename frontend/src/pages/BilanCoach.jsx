@@ -5,9 +5,9 @@ export default function BilanCoach() {
   const [champs, setChamps] = useState([]);
   const [cats, setCats] = useState([]);
   const [clubs, setClubs] = useState([]);
-  const [champId, setChampId] = useState("");
-  const [catId, setCatId] = useState("");
-  const [clubId, setClubId] = useState("");
+  const [champPublicId, setChampPublicId] = useState("");
+  const [catPublicId, setCatPublicId] = useState("");
+  const [clubPublicId, setClubPublicId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -31,12 +31,16 @@ export default function BilanCoach() {
   }, []);
 
   const handleChampChange = async (id) => {
-    setChampId(id);
+    setChampPublicId(id);
     setCats([]);
+    setCatPublicId("");
     if (!id) return;
     setLoading(true);
     try {
-      const r = await fetch(`http://localhost:5000/api/bilan/categories?champ_id=${id}`, { credentials: "include" });
+      const r = await fetch(
+        `http://localhost:5000/api/bilan/categories?champ_id=${encodeURIComponent(id)}`,
+        { credentials: "include" }
+      );
       const d = await r.json();
       setCats(d.categories || []);
     } catch {
@@ -47,11 +51,15 @@ export default function BilanCoach() {
   };
 
   const handleDownload = () => {
-    if (!champId || !catId || !clubId) {
+    if (!champPublicId || !catPublicId || !clubPublicId) {
       setError("Veuillez remplir tous les champs.");
       return;
     }
-    const q = new URLSearchParams({ champ_id: champId, categorie_id: catId, club_id: clubId });
+    const q = new URLSearchParams({
+      champ_id: champPublicId,
+      categorie_id: catPublicId,
+      club_id: clubPublicId,
+    });
     window.open(`http://localhost:5000/api/bilan/generate?${q}`, "_blank");
   };
 
@@ -62,35 +70,54 @@ export default function BilanCoach() {
       <Form className="d-grid gap-3">
         <Form.Group>
           <Form.Label>Championnat</Form.Label>
-          <Form.Select value={champId} onChange={(e) => handleChampChange(e.target.value)}>
+          <Form.Select
+            value={champPublicId}
+            onChange={(e) => handleChampChange(e.target.value)}
+          >
             <option value="">— choisir —</option>
             {champs.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
+              <option key={c.public_id} value={c.public_id}>
+                {c.label}
+              </option>
             ))}
           </Form.Select>
         </Form.Group>
 
         <Form.Group>
           <Form.Label>Catégorie</Form.Label>
-          <Form.Select value={catId} onChange={(e) => setCatId(e.target.value)} disabled={!champId || loading}>
+          <Form.Select
+            value={catPublicId}
+            onChange={(e) => setCatPublicId(e.target.value)}
+            disabled={!champPublicId || loading}
+          >
             <option value="">— choisir —</option>
             {cats.map((c) => (
-              <option key={c.id} value={c.id}>{c.nom}</option>
+              <option key={c.public_id} value={c.public_id}>
+                {c.nom}
+              </option>
             ))}
           </Form.Select>
         </Form.Group>
 
         <Form.Group>
           <Form.Label>Club</Form.Label>
-          <Form.Select value={clubId} onChange={(e) => setClubId(e.target.value)}>
+          <Form.Select
+            value={clubPublicId}
+            onChange={(e) => setClubPublicId(e.target.value)}
+          >
             <option value="">— choisir —</option>
             {clubs.map((c) => (
-              <option key={c.id} value={c.id}>{c.nom}</option>
+              <option key={c.public_id} value={c.public_id}>
+                {c.nom}
+              </option>
             ))}
           </Form.Select>
         </Form.Group>
 
-        <Button onClick={handleDownload} disabled={loading || !champId || !catId || !clubId}>
+        <Button
+          onClick={handleDownload}
+          disabled={loading || !champPublicId || !catPublicId || !clubPublicId}
+        >
           {loading ? <Spinner size="sm" /> : "Télécharger le Bilan PDF"}
         </Button>
       </Form>

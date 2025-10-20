@@ -28,6 +28,7 @@ def get_all_nageurs():
 
         data.append({
             "id": n.id_nageur,
+            "public_id": str(n.public_id),
             "nom": n.nom,
             "prenom": n.prenom,
             "full_name": f"{n.prenom} {n.nom}",
@@ -223,9 +224,9 @@ def _build_training_suggestions(stats, trend, dq_stats):
 # ==============================
 # Détails d’un nageur
 # ==============================
-@nageursDetails_bp.route("/<int:nageur_id>", methods=["GET"])
-def get_nageur_details(nageur_id):
-    nageur = Nageur.query.get(nageur_id)
+@nageursDetails_bp.route("/<uuid:public_id>", methods=["GET"])
+def get_nageur_details(public_id):
+    nageur = Nageur.query.filter_by(public_id=public_id).first()
     if not nageur:
         return jsonify({"error": "Nageur introuvable"}), 404
 

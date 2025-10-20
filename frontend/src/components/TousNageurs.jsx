@@ -239,13 +239,13 @@ export default function TousNageurs({ user }) {
 
         <Row xs={1} sm={2} md={4} className="g-4">
           {currentNageurs.map((n) => (
-            <Col key={n.id}>
+            <Col key={n.public_id}>
               <Card className="shadow-sm border-0 rounded-4 h-100 p-2">
                 <Card.Body>
                   <Card.Title
                     className="fw-bold text-uppercase"
                     style={{ cursor: "pointer", color: "#0e3e84" }}
-                    onClick={() => navigate(`/nageurs/${n.id}`)}
+                    onClick={() => navigate(`/nageurs/${n.public_id}`)}
                   >
                     {n.prenom} {n.nom}
                   </Card.Title>

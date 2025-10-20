@@ -17,12 +17,12 @@ export default function Navbar_Home({ user }) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
 
-  const [champs, setChamps] = useState([]);        // [{id, label}]
-  const [cats, setCats] = useState([]);            // [{id, nom, max_indiv, max_relay}]
-  const [clubs, setClubs] = useState([]);          // [{id, nom}]
-  const [champId, setChampId] = useState("");
-  const [catId, setCatId] = useState("");
-  const [clubId, setClubId] = useState("");
+  const [champs, setChamps] = useState([]); // [{id, label}]
+  const [cats, setCats] = useState([]); // [{id, nom, max_indiv, max_relay}]
+  const [clubs, setClubs] = useState([]); // [{id, nom}]
+  const [champPublicId, setChampPublicId] = useState("");
+  const [catPublicId, setCatPublicId] = useState("");
+  const [clubPublicId, setClubPublicId] = useState("");
 
   const openBilan = async () => {
     setShowBilan(true);
@@ -31,9 +31,15 @@ export default function Navbar_Home({ user }) {
     if (champs.length === 0) {
       setLoadingOpts(true);
       try {
-        const r = await fetch("http://localhost:5000/api/bilan/options", { credentials: "include" });
+        const r = await fetch(
+          `http://localhost:5000/api/bilan/categories?champ_id=${encodeURIComponent(
+            champPublicId
+          )}`,
+          { credentials: "include" }
+        );
         const data = await r.json();
-        if (!r.ok) throw new Error(data.message || "Erreur chargement championnats");
+        if (!r.ok)
+          throw new Error(data.message || "Erreur chargement championnats");
         setChamps(data.championnats || []);
       } catch (e) {
         setError(String(e));
@@ -44,7 +50,9 @@ export default function Navbar_Home({ user }) {
     if (clubs.length === 0) {
       setLoadingClubs(true);
       try {
-        const r = await fetch("http://localhost:5000/api/bilan/clubs", { credentials: "include" });
+        const r = await fetch("http://localhost:5000/api/bilan/clubs", {
+          credentials: "include",
+        });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message || "Erreur chargement clubs");
         setClubs(data.clubs || []);
@@ -57,16 +65,22 @@ export default function Navbar_Home({ user }) {
   };
 
   const onChampChange = async (id) => {
-    setChampId(id);
-    setCatId("");
-    setCats([]);
+    setChampPublicId(id);
+    setCatPublicId("");
+    setCatPublicId([]);
     if (!id) return;
     setLoadingCats(true);
     setError(null);
     try {
-      const r = await fetch(`http://localhost:5000/api/bilan/categories?champ_id=${encodeURIComponent(id)}`, { credentials: "include" });
+      const r = await fetch(
+        `http://localhost:5000/api/bilan/categories?champ_id=${encodeURIComponent(
+          id
+        )}`,
+        { credentials: "include" }
+      );
       const data = await r.json();
-      if (!r.ok) throw new Error(data.message || "Erreur chargement catégories");
+      if (!r.ok)
+        throw new Error(data.message || "Erreur chargement catégories");
       setCats(data.categories || []);
     } catch (e) {
       setError(String(e));
@@ -76,19 +90,23 @@ export default function Navbar_Home({ user }) {
   };
 
   const downloadBilan = () => {
-  setError(null);
-  if (!champId || !catId || !clubId) {
-    setError("Merci de choisir un championnat, une catégorie et un club.");
-    return;
-  }
-  const q = new URLSearchParams({
-    champ_id: String(champId),
-    categorie_id: String(catId),
-    club_id: String(clubId),
-  });
-  // Ouvre un onglet avec la page imprimable (puis “Enregistrer en PDF”)
-  window.open(`http://localhost:5000/api/bilan/generate?${q.toString()}`, "_blank");
-};
+    setError(null);
+    if (!champPublicId || !catPublicId || !clubPublicId) {
+      setError("Merci de choisir un championnat, une catégorie et un club.");
+      return;
+    }
+    const q = new URLSearchParams({
+      champ_id: champPublicId,
+      categorie_id: catPublicId,
+      club_id: clubPublicId,
+    });
+
+    // Ouvre un onglet avec la page imprimable (puis “Enregistrer en PDF”)
+    window.open(
+      `http://localhost:5000/api/bilan/generate?${q.toString()}`,
+      "_blank"
+    );
+  };
 
   return (
     <header className="home-navbar">
@@ -111,16 +129,24 @@ export default function Navbar_Home({ user }) {
       <nav className={`nav-links ${menuOpen ? "active" : ""}`}>
         <ul>
           <li>
-            <Link to="/home" onClick={() => setMenuOpen(false)}>Accueil</Link>
+            <Link to="/home" onClick={() => setMenuOpen(false)}>
+              Accueil
+            </Link>
           </li>
           <li>
-            <Link to="/nageurs" onClick={() => setMenuOpen(false)}>Nageurs</Link>
+            <Link to="/nageurs" onClick={() => setMenuOpen(false)}>
+              Nageurs
+            </Link>
           </li>
           <li>
-            <Link to="/clubs" onClick={() => setMenuOpen(false)}>Clubs</Link>
+            <Link to="/clubs" onClick={() => setMenuOpen(false)}>
+              Clubs
+            </Link>
           </li>
           <li>
-            <Link to="/championnats" onClick={() => setMenuOpen(false)}>Championnat</Link>
+            <Link to="/championnats" onClick={() => setMenuOpen(false)}>
+              Championnat
+            </Link>
           </li>
           <li>
             {user?.role === "coach" ? (
@@ -135,16 +161,20 @@ export default function Navbar_Home({ user }) {
                   openBilan();
                 }}
               >
-              Bilan
+                Bilan
               </Link>
             )}
           </li>
 
           {user?.role === "admin" && (
-            <li><Link to="/admin-dashboard">Admin Dashboard</Link></li>
+            <li>
+              <Link to="/admin-dashboard">Admin Dashboard</Link>
+            </li>
           )}
           {user?.role === "coach" && (
-            <li><Link to="/coach-dashboard">Coach Dashboard</Link></li>
+            <li>
+              <Link to="/coach-dashboard">Coach Dashboard</Link>
+            </li>
           )}
         </ul>
       </nav>
@@ -153,67 +183,108 @@ export default function Navbar_Home({ user }) {
       <img src={flag} alt="Drapeau tunisien" className="flag" />
 
       {/* ---- Modal Bilan ---- */}
-      <Modal show={showBilan} onHide={() => setShowBilan(false)} centered size="lg">
+      <Modal
+        show={showBilan}
+        onHide={() => setShowBilan(false)}
+        centered
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Créer un bilan (PDF)</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
+          {error && (
+            <Alert variant="danger" className="mb-3">
+              {error}
+            </Alert>
+          )}
 
           <Form className="d-grid gap-3">
             <Form.Group>
               <Form.Label>Championnat</Form.Label>
               <Form.Select
-                value={champId}
+                value={champPublicId}
                 onChange={(e) => onChampChange(e.target.value)}
                 disabled={loadingOpts}
                 required
               >
                 <option value="">— choisir —</option>
-                {champs.map(c => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
+                {champs.map((c) => (
+                  <option key={c.public_id} value={c.public_id}>
+                    {c.label}
+                  </option>
                 ))}
               </Form.Select>
-              {loadingOpts && <div className="mt-2"><Spinner size="sm" /> Chargement…</div>}
+
+              {loadingOpts && (
+                <div className="mt-2">
+                  <Spinner size="sm" /> Chargement…
+                </div>
+              )}
             </Form.Group>
 
             <Form.Group>
               <Form.Label>Catégorie</Form.Label>
               <Form.Select
-                value={catId}
-                onChange={(e) => setCatId(e.target.value)}
-                disabled={!champId || loadingCats}
+                value={catPublicId}
+                onChange={(e) => setCatPublicId(e.target.value)}
+                disabled={!champPublicId || loadingCats}
                 required
               >
                 <option value="">— choisir —</option>
-                {cats.map(x => (
-                  <option key={x.id} value={x.id}>{x.nom}</option>
+                {cats.map((x) => (
+                  <option key={x.public_id} value={x.public_id}>
+                    {x.nom}
+                  </option>
                 ))}
               </Form.Select>
-              {loadingCats && <div className="mt-2"><Spinner size="sm" /> Chargement…</div>}
+              {loadingCats && (
+                <div className="mt-2">
+                  <Spinner size="sm" /> Chargement…
+                </div>
+              )}
             </Form.Group>
 
             <Form.Group>
               <Form.Label>Club</Form.Label>
               <Form.Select
-                value={clubId}
-                onChange={(e) => setClubId(e.target.value)}
+                value={clubPublicId}
+                onChange={(e) => setClubPublicId(e.target.value)}
                 disabled={loadingClubs}
                 required
               >
                 <option value="">— choisir —</option>
-                {clubs.map(cl => (
-                  <option key={cl.id} value={cl.id}>{cl.nom}</option>
+                {clubs.map((cl) => (
+                  <option key={cl.public_id} value={cl.public_id}>
+                    {cl.nom}
+                  </option>
                 ))}
               </Form.Select>
-              {loadingClubs && <div className="mt-2"><Spinner size="sm" /> Chargement…</div>}
+              {loadingClubs && (
+                <div className="mt-2">
+                  <Spinner size="sm" /> Chargement…
+                </div>
+              )}
             </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowBilan(false)}>Fermer</Button>
-          <Button variant="primary" onClick={downloadBilan} disabled={!champId || !catId || !clubId}>
-            {downloading ? (<><Spinner size="sm" className="me-2" />Génération…</>) : "Télécharger PDF"}
+          <Button variant="secondary" onClick={() => setShowBilan(false)}>
+            Fermer
+          </Button>
+          <Button
+            variant="primary"
+            onClick={downloadBilan}
+            disabled={!champPublicId || !catPublicId || !clubPublicId}
+          >
+            {downloading ? (
+              <>
+                <Spinner size="sm" className="me-2" />
+                Génération…
+              </>
+            ) : (
+              "Télécharger PDF"
+            )}
           </Button>
         </Modal.Footer>
       </Modal>

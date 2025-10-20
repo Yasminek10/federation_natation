@@ -5,19 +5,19 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } fro
 import Navbar_Home from "../components/Navbar_Home";
 
 function CumulPoints({ user }) {
-  const { epreuveId } = useParams();
+  const { public_id } = useParams();
   const [cumul, setCumul] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/epreuves/${epreuveId}/resultats_cumul`)
+    fetch(`http://localhost:5000/api/epreuves/${public_id}/resultats_cumul`)
       .then(res => res.json())
       .then(data => {
         setCumul(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [epreuveId]);
+  }, [public_id]);
 
   if (loading) {
     return (
@@ -74,7 +74,7 @@ function CumulPoints({ user }) {
 
         {/* Bouton retour */}
         <div className="text-center">
-          <Link to={`/epreuves/${epreuveId}/resultats`}>
+          <Link to={`/epreuves/${public_id}/resultats`}>
             <Button variant="secondary">⬅ Retour aux résultats</Button>
           </Link>
         </div>

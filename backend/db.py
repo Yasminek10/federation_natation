@@ -1,23 +1,27 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
-
+import uuid
+from sqlalchemy.dialects.postgresql import UUID 
 db = SQLAlchemy()
 
 # =========================
 # Référentiels de base
 # =========================
 
-class Club(db.Model):
+class UUIDMixin:
+    # ✅ Si tu es sur PostgreSQL, tu peux faire :
+    public_id = db.Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
+
+class Club(db.Model,UUIDMixin):
     __tablename__ = "club"
     id_club = db.Column(db.BigInteger, primary_key=True)
     nom = db.Column(db.String(255), nullable=False, unique=True)
-
     nageurs = relationship("Nageur", back_populates="club", cascade="all, delete-orphan")
     equipes = relationship("Equipe", back_populates="club", cascade="all, delete-orphan")
 
 
-class Nageur(db.Model):
+class Nageur(db.Model,UUIDMixin):
     __tablename__ = "nageur"
     id_nageur = db.Column(db.BigInteger, primary_key=True)
     nom = db.Column(db.String(120), nullable=False)
@@ -64,7 +68,7 @@ class Categorie(db.Model):
     max_places_relay = db.Column(db.SmallInteger)
 
 
-class Epreuve(db.Model):
+class Epreuve(db.Model, UUIDMixin):
     __tablename__ = "epreuve"
     epreuve_id = db.Column(db.BigInteger, primary_key=True)
     nage = db.Column(db.String(40), nullable=False)       # 'Nage Libre','Papillon','Brasse','Dos','4 Nages'
@@ -85,7 +89,7 @@ class Epreuve(db.Model):
 
 
 
-class Championnat(db.Model):
+class Championnat(db.Model,UUIDMixin):
     __tablename__ = "championnat"
     champ_id = db.Column(db.BigInteger, primary_key=True)
     nom = db.Column(db.String(255), nullable=False)
@@ -287,7 +291,7 @@ class ResultatRelais(db.Model):
 # Utilisateurs
 # =========================
 
-class User(db.Model):
+class User(db.Model,UUIDMixin):
     __tablename__ = "user"
 
     user_id = db.Column(db.BigInteger, primary_key=True,autoincrement=True)

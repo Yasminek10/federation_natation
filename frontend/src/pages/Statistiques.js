@@ -80,7 +80,7 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function Statistiques({ user }) {
-  const { id } = useParams();
+  const { public_id } = useParams();
   const [stats, setStats] = useState([]);
   const [championnat, setChampionnat] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,8 +88,10 @@ export default function Statistiques({ user }) {
   // 🧾 Fonction de téléchargement PDF
 
   const handleDownloadPDF = async () => {
-    const res = await fetch(`http://localhost:5000/api/pdf/report/${id}`);
-    console.log("id du championnat:", id);
+    const res = await fetch(
+      `http://localhost:5000/api/pdf/report/${public_id}`
+    );
+    
     if (!res.ok) {
       alert("Erreur lors de la génération du PDF");
       return;
@@ -104,16 +106,16 @@ export default function Statistiques({ user }) {
   };
 
   useEffect(() => {
-    if (!id) return;
+    if (!public_id) return;
     setLoading(true);
 
     const statsReq = axios.get(
-      `http://localhost:5000/api/epreuves/statistiques/cumul/${id}`
+      `http://localhost:5000/api/epreuves/statistiques/cumul/${public_id}`
     );
     const cumulReq = axios.get(
-      `http://localhost:5000/api/bilan/cumul_points_clubs/${id}`
+      `http://localhost:5000/api/bilan/cumul_points_clubs/${public_id}`
     );
-
+    
     Promise.all([statsReq, cumulReq])
       .then(([sRes, cRes]) => {
         const formatted = (sRes.data || []).map((s) => ({
@@ -130,7 +132,7 @@ export default function Statistiques({ user }) {
         setChampionnat(null);
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [public_id]);
 
   // derived data
   const totalPointsParClub = useMemo(() => {
@@ -268,7 +270,7 @@ export default function Statistiques({ user }) {
           </Card.Body>
         </Card>
 
-        <ClassementChampionnat id={id} />
+        <ClassementChampionnat public_id={public_id} />
 
         {/* top clubs + stacked bars */}
 

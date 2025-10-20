@@ -10,22 +10,22 @@ import {
 import axios from "axios";
 
 
-export default function ClassementChampionnat({ id }) {
+export default function ClassementChampionnat({ public_id  }) {
   const [championnat, setChampionnat] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!public_id) return;
     setLoading(true);
     axios
-      .get(`http://localhost:5000/api/bilan/cumul_points_clubs/${id}`)
+      .get(`http://localhost:5000/api/bilan/cumul_points_clubs/${public_id }`)
       .then((res) => setChampionnat(res.data))
       .catch((err) => {
         console.error("Erreur fetch cumul:", err);
         setChampionnat(null);
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [public_id]);
 
   if (loading) {
     return (
@@ -106,7 +106,7 @@ export default function ClassementChampionnat({ id }) {
       {/* Classement détaillé par catégorie */}
       <Accordion alwaysOpen>
         {(championnat.categories || []).map((cat, idx) => (
-          <Accordion.Item eventKey={String(idx)} key={idx}>
+          <Accordion.Item eventKey={String(idx)} key={cat.public_id ?? idx}>
             <Accordion.Header>
               <span className="fw-bold text-primary">{cat.categorie}</span>
             </Accordion.Header>
@@ -133,7 +133,7 @@ export default function ClassementChampionnat({ id }) {
                     </tr>
                   ) : (
                     (cat.classement || []).map((club, i) => (
-                      <tr key={club.club + i}>
+                      <tr key={club.public_id ?? i}>
                         <td>
                           <Badge
                             bg={

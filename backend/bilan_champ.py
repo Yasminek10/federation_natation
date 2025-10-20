@@ -4,8 +4,8 @@ from bilan import _meet_minima, _is_eligible_swimmer
 
 bilan_clubs_bp = Blueprint("bilan_clubs", __name__, url_prefix="/api/bilan")
 
-@bilan_clubs_bp.route("/cumul_points_clubs/<int:champ_id>", methods=["GET"])
-def cumul_points_clubs(champ_id):
+@bilan_clubs_bp.route("/cumul_points_clubs/<uuid:public_id>", methods=["GET"])
+def cumul_points_clubs(public_id):
     """
     Retourne le cumul des points par club pour un championnat spécifique et chaque catégorie.
     Règles :
@@ -14,7 +14,7 @@ def cumul_points_clubs(champ_id):
     - Nageurs éligibles uniquement
     - Points ×2 pour les relais
     """
-    champ = Championnat.query.get(champ_id)
+    champ = Championnat.query.filter_by(public_id=public_id).first()
     if not champ:
         return jsonify({"error": "Championnat introuvable"}), 404
 
@@ -101,6 +101,7 @@ def cumul_points_clubs(champ_id):
 
     result = {
         "id": champ.champ_id,
+        "public_id": champ.public_id,
         "championnat": champ.nom,
         "saison": champ.saison,
         "datedeb": champ.datedeb.isoformat() if champ.datedeb else None,

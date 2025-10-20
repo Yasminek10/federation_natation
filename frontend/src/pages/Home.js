@@ -36,7 +36,7 @@ function Home() {
   const goToOCR = () => navigate("/ocr");
   const goToLastChampionnat = () => {
     if (lastChampionnat) {
-      navigate(`/championnats/${lastChampionnat.id}/epreuves`);
+      navigate(`/championnats/${lastChampionnat.public_id}/epreuves`);
     }
   };
 

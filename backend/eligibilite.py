@@ -76,10 +76,10 @@ def list_approvals():
 
     return jsonify({"items": data, "total": total, "page": page, "page_size": page_size})
 
-@swimmers_bp.patch("/<int:nageur_id>")
-def update_swimmer(nageur_id: int):
+@swimmers_bp.patch("/<uuid:public_id>")
+def update_swimmer(public_id):
     payload = request.get_json(silent=True) or {}
-    n = Nageur.query.get(nageur_id)
+    n = Nageur.query.filter_by(public_id=public_id).first_or_404()
     if not n:
         return jsonify({"status":"error","message":"Nageur introuvable"}), 404
 
