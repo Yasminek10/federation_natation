@@ -1,7 +1,18 @@
 import React from "react";
 import { Card, Table, Badge, ProgressBar } from "react-bootstrap";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function SwimmerInsights({ insights }) {
+  const [selectedEvent, setSelectedEvent] = React.useState("");
+
   if (!insights) return null;
 
   const {
@@ -149,6 +160,97 @@ export default function SwimmerInsights({ insights }) {
           ) : <div className="text-muted">Pas de conseil spécifique pour l’instant.</div>}
         </Card.Body>
       </Card> */}
+
+      <Card className="shadow-sm border-0 rounded-3">
+  <Card.Header className="bg-primary text-white">
+     Évolution des performances
+  </Card.Header>
+  <Card.Body style={{ height: "300px" }}>
+    {trend?.by_year?.length ? (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={trend.by_year} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="year" />
+          <YAxis domain={["auto", "auto"]} />
+          <Tooltip formatter={(v) => `${v.toFixed(1)} pts`} />
+          <Line
+            type="monotone"
+            dataKey="avg_points"
+            stroke="#0d6efd"
+            strokeWidth={3}
+            dot={{ r: 5 }}
+            activeDot={{ r: 7 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    ) : (
+      <div className="text-muted text-center">
+        Pas encore assez de données pour afficher une courbe.
+      </div>
+    )}
+  </Card.Body>
+</Card>
+
+<Card className="shadow-sm border-0 rounded-3">
+  <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
+    <span>Progression par épreuve</span>
+    {trend?.over_time?.length > 0 && (
+      <select
+        className="form-select form-select-sm w-auto"
+        value={selectedEvent}
+        onChange={(e) => setSelectedEvent(e.target.value)}
+      >
+        <option value="">Toutes les épreuves</option>
+        {Array.from(new Set(trend.over_time.map(d => d.epreuve))).map((ep, i) => (
+          <option key={i} value={ep}>{ep}</option>
+        ))}
+      </select>
+    )}
+  </Card.Header>
+
+  <Card.Body style={{ height: "350px" }}>
+    {trend?.over_time?.length ? (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart
+          data={
+            [...trend.over_time]
+              .filter(d => !selectedEvent || d.epreuve === selectedEvent)
+              .sort((a, b) => a.date.localeCompare(b.date))
+          }
+          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis />
+          <Tooltip
+            formatter={(value, name, props) => {
+            const { payload } = props;
+              return [
+                `${value} pts — ${payload.temps}`,
+                 selectedEvent
+                ? `${payload.championnat}`
+                : `${payload.epreuve} | ${payload.championnat}`
+              ];
+            }}
+            labelFormatter={() => ""}
+          />
+          <Line
+            type="monotone"
+            dataKey="points"
+            stroke="#198754"
+            strokeWidth={2}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    ) : (
+      <div className="text-muted text-center">
+        Pas de données disponibles pour afficher la courbe.
+      </div>
+    )}
+  </Card.Body>
+</Card>
 
       <Card className="shadow-sm border-0 rounded-3">
         <Card.Header className="bg-primary text-white">

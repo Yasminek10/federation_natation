@@ -165,62 +165,7 @@ def _event_key(epr_label: str) -> tuple:
     except Exception:
         return (epr_label, None, None)
 
-def _build_training_suggestions(stats, trend, dq_stats):
-    """
-    Transforme les métriques en conseils lisibles.
-    stats: dict avec 'events_summary', 'best_events', 'minima_fail_hotspots', 'versatility', 'stroke_averages'
-    trend: dict avec 'by_year' (liste {'year','avg_points'}), 'last_change'
-    dq_stats: {'dsq': int, 'dns_dnf': int, 'total': int}
-    """
-    suggestions = []
 
-    # 1) Profil sprinter vs endurance (selon les distances des meilleures épreuves)
-    if stats.get("best_events"):
-        best_distances = [e.get("distance") for e in stats["best_events"] if e.get("distance")]
-        if best_distances:
-            short_cnt = sum(1 for d in best_distances if d and d <= 100)
-            long_cnt  = sum(1 for d in best_distances if d and d >= 200)
-            if short_cnt >= 2 and long_cnt == 0:
-                suggestions.append("Profil sprinter : consolider la vitesse (explosivité, départs/virages, lactique court, séries 25–50m).")
-            elif long_cnt >= 2 and short_cnt == 0:
-                suggestions.append("Profil endurance : accentuer l’aérobie/tempo (200–800m, pacing négatif, seuil).")
-            else:
-                suggestions.append("Profil mixte : alterner blocs vitesse (25–50m) et aérobie (200–400m) sur la semaine.")
-
-    # 2) Moyennes par nage → force/faiblesse
-    stroke_avgs = stats.get("stroke_averages", {})
-    if stroke_avgs:
-        best_stroke = max(stroke_avgs.items(), key=lambda kv: kv[1])[0]
-        worst_stroke = min(stroke_avgs.items(), key=lambda kv: kv[1])[0]
-        suggestions.append(f"Force : {best_stroke}. Continuer le volume spécifique + vitesse de course.")
-        suggestions.append(f"Faiblesse : {worst_stroke}. 2×/sem technique ciblée (drills, coordination bras-jambes).")
-
-    # 3) Minimas : hotspots
-    for hot in stats.get("minima_fail_hotspots", [])[:2]:
-        suggestions.append(
-            f"Minimas irréguliers en {hot['distance']}m {hot['nage']} : économie gestuelle + virages. "
-            f"Objectif : +{hot['target_points_boost']} pts via séries au seuil."
-        )
-
-    # 4) Tendance points (année → année)
-    lc = trend.get("last_change")
-    if lc is not None:
-        if lc < -10:
-            suggestions.append("Baisse récente : micro-cycle de récupération + bilan charge/sommeil ; rééquilibrer intensités.")
-        elif lc > 10:
-            suggestions.append("Progression notable : garder la structure, placer des compétitions de repère.")
-
-    # 5) DSQ / DNS-DNF
-    if dq_stats.get("dsq", 0) >= 2:
-        suggestions.append("DSQ multiples : sécuriser la conformité technique (départs/coulées/virages) — vidéo + feedback.")
-    if dq_stats.get("dns_dnf", 0) >= 2:
-        suggestions.append("DNS/DNF fréquents : routine échauffement + nutrition/hydratation à revoir.")
-
-    # 6) Variété de nages
-    if stats.get("versatility", 0) <= 1:
-        suggestions.append("Variété limitée : introduire 1 séance hebdo d’une autre nage (prévention blessures + transferts techniques).")
-
-    return suggestions[:6]
 # ==============================
 # Détails d’un nageur
 # ==============================
@@ -481,7 +426,55 @@ def get_nageur_details(public_id):
         "stroke_averages": stroke_averages
     }
     insights_trend = {"by_year": trend_series, "last_change": round(last_change, 1) if last_change is not None else None}
-    suggestions = _build_training_suggestions(insights_stats, insights_trend, dq_stats)
+
+    # 9) Évolution temporelle détaillée (par épreuve, points + temps à chaque participation)
+    perf_timeline = []
+
+    for ri in nageur.resultats_individuels:
+        base = ri.base
+        cec = base.cec
+        ch = cec.championnat
+        epr = cec.epreuve
+
+        # On ne garde que les résultats valides
+        if not base or base.statut != "OK":
+            continue
+
+        # Dates du championnat (priorité à datedeb)
+        date_ref = ch.datedeb or ch.datefin
+        date_iso = date_ref.isoformat() if date_ref else None
+
+        # Label saison lisible
+        saison_label = f"{date_ref.year} ({ch.saison.capitalize()})" if date_ref else ch.saison.capitalize()
+
+        perf_timeline.append({
+            "date": date_iso,
+            "date_label": saison_label,
+            "epreuve": f"{epr.distance}m {epr.nage} ({epr.genre})",
+            "nage": epr.nage,
+            "distance": epr.distance,
+            "points": base.points,
+            "temps": base.temps,
+            "championnat": f"{ch.nom} ({ch.datedeb.year})"
+        })
+
+    #  Tri chronologique réel via la date de début
+    perf_timeline = sorted(
+        [p for p in perf_timeline if p["date"]],
+        key=lambda x: x["date"]
+    )
+
+    #  Injection dans les insights
+    insights_trend["over_time"] = [
+        {
+            "date": p["date_label"],        # affiché sur l’axe X
+            "epreuve": p["epreuve"],
+            "points": p["points"],
+            "temps": p["temps"],
+            "championnat": p["championnat"]
+        }
+        for p in perf_timeline
+    ]
 
     return jsonify({
         "nageur": nageur_data,
@@ -496,6 +489,5 @@ def get_nageur_details(public_id):
             "versatility": versatility,
             "trend": insights_trend,
             "dq_stats": dq_stats,
-            "suggestions": suggestions,
         },
     })

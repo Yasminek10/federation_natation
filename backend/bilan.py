@@ -310,12 +310,12 @@ def _performances_club(champ: Championnat, prev: Championnat | None, categorie_i
             sw.pop("_seen", None)
             nageur = Nageur.query.filter(func.concat(Nageur.nom, " ", Nageur.prenom) == sw["nom"]).first()
             sw_pts = _swimmer_points_in_champ(nageur.id_nageur, champ.champ_id, categorie_id) if nageur else 0
-            out.append({**sw, "points": sw_pts})
+            out.append({"id_nageur": nageur.id_nageur if nageur else 0, **sw, "points": sw_pts})
         return out
 
     return cleanup(details["Dames"]), cleanup(details["Messieurs"])
 
-def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
+def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club, selected_ids: list[int] | None = None):
     prev = _previous_champ_same_scope(champ, categorie.categorie_id)
 
     # Classements
@@ -331,6 +331,9 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
 
     # Perfs du club
     dames, messieurs = _performances_club(champ, prev, categorie.categorie_id, club.id_club)
+    if selected_ids:
+        dames = [sw for sw in dames if sw["id_nageur"] in selected_ids]
+        messieurs = [sw for sw in messieurs if sw["id_nageur"] in selected_ids]
 
     # Relais du club
     rel_rows = (
@@ -378,7 +381,7 @@ def render_bilan_html(champ: Championnat, categorie: Categorie, club: Club):
             )
             sections.append(
                 f"""
-  <div>
+  <div class="swimmer" data-id="{sw.get('id_nageur', 0)}">
     <b>{sw['nom']}</b>
     <table>
       <thead><tr><th>Nage</th><th>Temps {prev_label}</th><th>Temps {season_title}</th></tr></thead>
@@ -544,11 +547,13 @@ def generate():
         champ_id = request.args.get("champ_id", type=int)
         categorie_id = request.args.get("categorie_id", type=int)
         club_id = request.args.get("club_id", type=int)
+        nageurs_str = request.args.get("nageurs")
     else:
         data = request.get_json(silent=True) or {}
         champ_id = int(data.get("champ_id") or 0)
         categorie_id = int(data.get("categorie_id") or 0)
         club_id = int(data.get("club_id") or 0)
+        nageurs_str = data.get("nageurs")
 
     if not champ_id or not categorie_id or not club_id:
         return jsonify({"message": "Paramètres requis: champ_id, categorie_id, club_id"}), 422
@@ -558,9 +563,38 @@ def generate():
     club = Club.query.get(club_id)
     if not champ or not categorie or not club:
         return jsonify({"message": "Objet introuvable"}), 404
+    
+    selected_ids = []
+    if nageurs_str:
+        try:
+            import json
+            selected_ids = json.loads(nageurs_str)
+            # sécurité : ne garder que des entiers
+            selected_ids = [int(x) for x in selected_ids if str(x).isdigit()]
+        except Exception as e:
+            print("Erreur parsing nageurs :", e)
+    
+    # Filtrer avant rendu
+    if selected_ids:
+        def filtered_performances(champ, categorie, club):
+            dames, messieurs = _performances_club(champ, _previous_champ_same_scope(champ, categorie.categorie_id),
+                                                  categorie.categorie_id, club.id_club)
+            dames = [sw for sw in dames if sw["id_nageur"] in selected_ids]
+            messieurs = [sw for sw in messieurs if sw["id_nageur"] in selected_ids]
+            return dames, messieurs
 
-    # Build printable HTML (no WeasyPrint)
-    html = render_bilan_html(champ, categorie, club)
+        # Patch temporaire du rendu pour inclure seulement les nageurs filtrés
+        from types import SimpleNamespace
+        champ_data = SimpleNamespace(**{
+            "champ": champ,
+            "categorie": categorie,
+            "club": club,
+            "performances": filtered_performances(champ, categorie, club)
+        })
+
+        html = render_bilan_html(champ, categorie, club, selected_ids)
+    else:
+        html = render_bilan_html(champ, categorie, club, selected_ids)
 
     # Auto-open the browser print dialog
     html = html.replace(
@@ -573,3 +607,40 @@ def generate():
     return resp
 
 
+@bilan_bp.get("/nageurs_participants")
+def nageurs_participants():
+    """
+    Renvoie la liste des nageurs d’un club ayant participé
+    à un championnat donné dans une catégorie donnée.
+    """
+    champ_id = request.args.get("champ_id", type=int)
+    categorie_id = request.args.get("categorie_id", type=int)
+    club_id = request.args.get("club_id", type=int)
+
+    if not champ_id or not categorie_id or not club_id:
+        return jsonify({"message": "Paramètres requis"}), 422
+
+    # jointure sur ResultatBase -> ResultatIndividuel -> Nageur -> CEC
+    q = (
+        db.session.query(Nageur)
+        .join(ResultatIndividuel, ResultatIndividuel.id_nageur == Nageur.id_nageur)
+        .join(ResultatBase, ResultatBase.resultat_id == ResultatIndividuel.resultat_id)
+        .join(CEC, CEC.cec_id == ResultatBase.cec_id)
+        .filter(
+            Nageur.id_club == club_id,
+            CEC.champ_id == champ_id,
+            CEC.categorie_id == categorie_id
+        )
+        .distinct()
+        .order_by(Nageur.nom.asc(), Nageur.prenom.asc())
+    )
+
+    nageurs = [
+        {
+            "id_nageur": n.id_nageur,
+            "nom": n.nom,
+            "prenom": n.prenom
+        }
+        for n in q
+    ]
+    return jsonify({"nageurs": nageurs})
