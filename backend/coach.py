@@ -1,119 +1,731 @@
-# backend/coach.py
-from flask import Blueprint, jsonify, request, g
-from db import db, User, Nageur, Seance, Presence, Epreuve, SessionTest, ResultatTest
-from datetime import date
+from flask import Blueprint, jsonify, request, session, g
+from db import db, User, Nageur, Seance, Presence, Categorie, Club, Epreuve, SessionTest, ResultatTest, ResultatIndividuel, ResultatBase, CEC
+from system_date import get_categorie_from_birth_year  
+from datetime import date as dt_date
+from functools import lru_cache
+import re
+
 
 coach_bp = Blueprint("coach", __name__, url_prefix="/api/coach")
 
 
-# ============================
-# Récupérer les nageurs du coach
-# ============================
-@coach_bp.get("/nageurs")
-def list_nageurs():
+def parse_temps_to_seconds(temps_str):
+    """Convertit un temps (HH:MM:SS.xx ou M.SS.xx ou 1:23.45) en secondes décimales."""
+    if not temps_str:
+        return None
+    s = temps_str.strip().replace(",", ".")
+    
+    # Formats acceptés :
+    # - 1:23.45
+    # - 59.87
+    # - 1.23.45
+    # - 00:01:02.34
+    match = re.match(r"(?:(\d+):)?(\d{1,2})[.:](\d{1,2})(?:[.:](\d{1,2}))?", s)
+    if not match:
+        return None
+    
+    parts = [int(x) if x else 0 for x in match.groups()]
+    if len(parts) == 4:
+        h, m, s, cs = parts
+        return h * 3600 + m * 60 + s + cs / 100
+    elif len(parts) == 3:
+        m, s, cs = parts
+        return m * 60 + s + cs / 100
+    else:
+        return None
+    
+
+# ======================================================
+# 🔹 Helper : récupérer le coach connecté
+# ======================================================
+def _get_current_coach():
+    u = g.get("user") or getattr(g, "user", None)
+    if not u and "user" in session:
+        u = session["user"]
+    if not u:
+        return None
+
+    user_id = u.get("id") or u.get("user_id")
+    if not user_id:
+        return None
+
+    return User.query.get(user_id)
+
+
+# ======================================================
+# 🔹 Récupérer tous les clubs
+# ======================================================
+@coach_bp.get("/clubs")
+def get_clubs():
+    clubs = Club.query.order_by(Club.nom).all()
+    return jsonify({
+        "clubs": [{"id_club": c.id_club, "nom": c.nom} for c in clubs]
+    })
+
+
+# ======================================================
+# 🔹 Récupérer les nageurs d’un club avec filtres
+# ======================================================
+@coach_bp.get("/clubs/<int:club_id>/nageurs_filtres")
+def get_nageurs_filtres(club_id):
+    categorie_id = request.args.get("categorie_id", type=int)
+    search = request.args.get("search", type=str, default="").strip().lower()
+
+    query = Nageur.query.filter_by(id_club=club_id)
+
+    if search:
+        query = query.filter(
+            db.or_(
+                db.func.lower(Nageur.nom).like(f"%{search}%"),
+                db.func.lower(Nageur.prenom).like(f"%{search}%"),
+            )
+        )
+
+    nageurs = query.all()
+    coach = _get_current_coach()
+
+    data = []
+    for n in nageurs:
+        cat_name = get_categorie_from_birth_year(n.birth_year)
+
+        if categorie_id:
+            cat = Categorie.query.get(categorie_id)
+            if not cat or cat.nom != cat_name:
+                continue
+
+        data.append({
+            "id_nageur": n.id_nageur,
+            "nom": n.nom,
+            "prenom": n.prenom,
+            "birth_year": n.birth_year,
+            "club": n.club.nom if n.club else None,
+            "categorie": cat_name,
+            "id_coach": n.id_coach,
+            "selected": (n.id_coach == coach.user_id if coach else False),
+        })
+
+    return jsonify({"nageurs": data})
+
+
+# ======================================================
+# 🔹 Mettre à jour les nageurs encadrés par le coach
+# ======================================================
+@coach_bp.post("/nageurs/update")
+def update_nageurs_coach():
     coach = _get_current_coach()
     if not coach:
         return jsonify({"message": "Coach non trouvé"}), 404
+
+    data = request.get_json()
+    selected_ids = data.get("nageur_ids", [])
+
+    # Enlever les anciens nageurs du coach
+    old_nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+    for n in old_nageurs:
+        n.id_coach = None
+
+    # Réassigner les nouveaux
+    for nid in selected_ids:
+        nageur = Nageur.query.get(nid)
+        if nageur:
+            nageur.id_coach = coach.user_id
+
+    db.session.commit()
+    return jsonify({"message": "Liste des nageurs mise à jour avec succès."})
+
+
+# ======================================================
+# 🔹 Récupérer les nageurs encadrés par le coach
+# ======================================================
+@coach_bp.get("/nageurs/mine")
+def get_nageurs_du_coach():
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
     nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+    if not nageurs:
+        return jsonify({"nageurs": [], "club_id": None, "club_nom": None})
+
+    club_id = nageurs[0].id_club
+    club = Club.query.get(club_id)
+
     return jsonify({
+        "club_id": club_id,
+        "club_nom": club.nom if club else None,
         "nageurs": [
             {
-                "id": n.id_nageur,
+                "id_nageur": n.id_nageur,
                 "nom": n.nom,
                 "prenom": n.prenom,
-                "club": n.club.nom if n.club else None,
                 "birth_year": n.birth_year,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "selected": True
             }
             for n in nageurs
         ]
     })
 
-# ============================
-# Enregistrer une absence pour un nageur
-# ============================
-@coach_bp.post("/absences")
-def add_absence():
-    coach = _get_current_coach()
+
+# ======================================================
+# 🔹 Récupérer les catégories
+# ======================================================
+@coach_bp.get("/categories")
+def get_categories():
+    cats = Categorie.query.order_by(Categorie.nom).all()
+    return jsonify({"categories": [{"id": c.categorie_id, "nom": c.nom} for c in cats]})
+
+
+# ======================================================
+# 🔹 Créer ou récupérer une séance
+# ======================================================
+@coach_bp.post("/seances/get_or_create")
+def get_or_create_seance():
     data = request.get_json()
-    nageur_id = data.get("nageur_id")
     date_str = data.get("date")
-    session = data.get("session", "AM")
+    session_name = data.get("session")
+    lieu = data.get("lieu")
 
-    nageur = Nageur.query.get(nageur_id)
-    if not nageur or nageur.id_coach != coach.user_id:
-        return jsonify({"message": "Nageur non autorisé"}), 403
+    if not date_str or not session_name or not lieu:
+        return jsonify({"message": "Date, session et lieu requis"}), 400
 
-    # Vérifie ou crée la séance
-    seance = Seance.query.filter_by(date=date_str, session=session).first()
+    # 🚫 Vérifier si la date est future
+    try:
+        date_obj = dt_date.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({"message": "Format de date invalide"}), 400
+
+    if date_obj > dt_date.today():
+        return jsonify({"message": "Impossible d’ajouter une séance future."}), 400
+
+    seance = Seance.query.filter_by(date=date_obj, session=session_name, lieu_training=lieu).first()
     if not seance:
-        seance = Seance(date=date_str, session=session)
+        seance = Seance(date=date_obj, session=session_name, lieu_training=lieu)
         db.session.add(seance)
-        db.session.flush()
+        db.session.commit()
 
-    # Enregistre la présence
-    presence = Presence.query.filter_by(nageur_id=nageur.id_nageur, seance_id=seance.seance_id).first()
-    if not presence:
-        presence = Presence(nageur_id=nageur.id_nageur, seance_id=seance.seance_id, present=False)
-        db.session.add(presence)
-    else:
-        presence.present = False
+    return jsonify({
+        "seance_id": seance.seance_id,
+        "date": seance.date.isoformat(),
+        "session": seance.session,
+        "lieu": seance.lieu_training
+    })
 
-    db.session.commit()
-    return jsonify({"message": "Absence enregistrée avec succès"})
 
-# ============================
-# Enregistrer un test technique
-# ============================
-@coach_bp.post("/tests")
-def add_test():
+# ======================================================
+# 🔹 Enregistrer les présences
+# ======================================================
+@coach_bp.post("/presences/save")
+def save_presences():
     coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
     data = request.get_json()
-    nageur_id = data.get("nageur_id")
-    epreuve_id = data.get("epreuve_id")
-    temps = data.get("temps")
-    date_test = data.get("date_test")
+    seance_id = data.get("seance_id")
+    presences = data.get("presences", [])
 
-    nageur = Nageur.query.get(nageur_id)
-    if not nageur or nageur.id_coach != coach.user_id:
-        return jsonify({"message": "Nageur non autorisé"}), 403
+    if not seance_id or not presences:
+        return jsonify({"message": "Données incomplètes"}), 400
 
-    # Trouver ou créer la session de test
-    sess = SessionTest.query.filter_by(epreuve_id=epreuve_id, date_test=date_test).first()
-    if not sess:
-        sess = SessionTest(epreuve_id=epreuve_id, date_test=date_test)
-        db.session.add(sess)
-        db.session.flush()
+    nageur_ids = [p["nageur_id"] for p in presences]
+    Presence.query.filter(
+        Presence.seance_id == seance_id,
+        Presence.nageur_id.in_(nageur_ids)
+    ).delete(synchronize_session=False)
 
-    # Ajouter résultat
-    res = ResultatTest.query.filter_by(nageur_id=nageur.id_nageur, session_test_id=sess.session_test_id).first()
-    if not res:
-        res = ResultatTest(nageur_id=nageur.id_nageur, session_test_id=sess.session_test_id, temps=temps)
-        db.session.add(res)
-    else:
-        res.temps = temps
+    for p in presences:
+        db.session.add(Presence(
+            nageur_id=p["nageur_id"],
+            seance_id=seance_id,
+            present=p.get("present", True)
+        ))
 
     db.session.commit()
-    return jsonify({"message": "Test ajouté avec succès"})
+    return jsonify({"message": "Présences enregistrées avec succès."})
 
-# ============================
-#  Statistiques du coach
-# ============================
-@coach_bp.get("/stats")
-def stats_coach():
+
+# ======================================================
+# 🔹 Charger les présences d'une séance donnée
+# ======================================================
+@coach_bp.get("/presences/by_date")
+def get_presences_by_date():
     coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    date = request.args.get("date")
+    session_name = request.args.get("session")
+
+    if not date or not session_name:
+        return jsonify({"message": "Date et session requises"}), 400
+
+    seance = Seance.query.filter_by(date=date, session=session_name).first()
     nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
-    results = []
-    for n in nageurs:
-        tests = (
-            db.session.query(ResultatTest, SessionTest, Epreuve)
-            .join(SessionTest, SessionTest.session_test_id == ResultatTest.session_test_id)
-            .join(Epreuve, Epreuve.epreuve_id == SessionTest.epreuve_id)
-            .filter(ResultatTest.nageur_id == n.id_nageur)
-            .order_by(SessionTest.date_test.desc())
-            .all()
-        )
-        results.append({
-            "nageur": f"{n.prenom} {n.nom}",
-            "tests": [{"epreuve": f"{e.distance}m {e.nage}", "date": s.date_test, "temps": r.temps} for r, s, e in tests]
+
+    # ⚙️ Si la séance n’existe pas encore
+    if not seance:
+        return jsonify({
+            "seance_id": None,
+            "lieu": "",
+            "presences": [
+                {
+                    "id_nageur": n.id_nageur,
+                    "nom": n.nom,
+                    "prenom": n.prenom,
+                    "categorie": get_categorie_from_birth_year(n.birth_year),
+                    "present": True
+                }
+                for n in nageurs
+            ]
         })
-    return jsonify({"stats": results})
+
+    # ⚙️ Si la séance existe déjà
+    pres_dict = {p.nageur_id: p.present for p in seance.presences}
+    data = [
+        {
+            "id_nageur": n.id_nageur,
+            "nom": n.nom,
+            "prenom": n.prenom,
+            "categorie": get_categorie_from_birth_year(n.birth_year),
+            "present": pres_dict.get(n.id_nageur, True)
+        }
+        for n in nageurs
+    ]
+
+    return jsonify({
+        "seance_id": seance.seance_id,
+        "date": seance.date.isoformat(),
+        "session": seance.session,
+        "lieu": seance.lieu_training,   # ✅ ajout du lieu ici
+        "presences": data
+    })
+
+# ======================================================
+# 🔹 Historique des séances du coach
+# ======================================================
+@coach_bp.get("/seances/history")
+def get_seances_history():
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    subquery = (
+        db.session.query(Presence.seance_id)
+        .join(Nageur, Nageur.id_nageur == Presence.nageur_id)
+        .filter(Nageur.id_coach == coach.user_id)
+        .distinct()
+        .subquery()
+    )
+
+    seances = (
+        db.session.query(Seance)
+        .filter(Seance.seance_id.in_(subquery))
+        .order_by(Seance.date.desc(), Seance.session.desc())
+        .all()
+    )
+
+    return jsonify({
+        "seances": [
+            {
+                "seance_id": s.seance_id,
+                "date": s.date.isoformat(),
+                "session": s.session,
+                "lieu": s.lieu_training
+            }
+            for s in seances
+        ]
+    })
+
+@coach_bp.get("/tests/epreuves")
+def get_epreuves_tests():
+    """Liste les épreuves individuelles disponibles (ex: 100m Papillon)."""
+    epreuves = (
+        Epreuve.query.filter_by(is_relay=False)
+        .order_by(Epreuve.distance, Epreuve.nage, Epreuve.genre)
+        .all()
+    )
+    return jsonify({
+        "epreuves": [
+            {
+                "epreuve_id": e.epreuve_id,
+                "label": f"{e.distance}m {e.nage} ({e.genre})"
+            }
+            for e in epreuves
+        ]
+    })
+
+
+@coach_bp.get("/tests/by_date_epreuve")
+def get_tests_by_date_epreuve():
+    """Charge les résultats existants d’un test (date + épreuve)."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    date_str = request.args.get("date")
+    epreuve_id = request.args.get("epreuve_id", type=int)
+
+    if not date_str or not epreuve_id:
+        return jsonify({"message": "Date et épreuve requises"}), 400
+
+    # 🔹 Récupérer l’épreuve sélectionnée
+    epreuve = Epreuve.query.get(epreuve_id)
+    if not epreuve:
+        return jsonify({"message": "Épreuve introuvable"}), 404
+
+    genre_epreuve = epreuve.genre.lower()  # "dames", "messieurs", ou "mixte"
+
+    # 🔹 Chercher la session existante
+    session_test = SessionTest.query.filter_by(date_test=date_str, epreuve_id=epreuve_id).first()
+
+    # ===========================================================
+    # CAS 1 : le test existe → on renvoie seulement ses résultats
+    # ===========================================================
+    if session_test:
+        data = []
+        for r in session_test.resultats:
+            n = Nageur.query.get(r.nageur_id)
+            if not n:
+                continue
+            data.append({
+                "id_nageur": n.id_nageur,
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "temps": r.temps if r.temps else "",
+                "absence": (r.temps in [None, "", "ABS"])
+            })
+
+        return jsonify({
+            "session_test_id": session_test.session_test_id,
+            "genre_epreuve": epreuve.genre,
+            "results": data
+        })
+
+    # ===========================================================
+    # CAS 2 : aucun test enregistré → filtrer les nageurs du coach
+    # ===========================================================
+    nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+
+    # 🔹 Si l’épreuve n’est pas mixte → filtrer selon le genre
+    if genre_epreuve != "mixte":
+        genre_map = {}
+
+        # Déterminer le genre à partir des épreuves en championnat
+        for n in nageurs:
+            dernier_resultat = (
+                db.session.query(Epreuve.genre)
+                .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
+                .join(ResultatBase, ResultatBase.cec_id == CEC.cec_id)
+                .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+                .filter(ResultatIndividuel.id_nageur == n.id_nageur)
+                .order_by(ResultatBase.resultat_id.desc())
+                .first()
+            )
+            if dernier_resultat:
+                genre_map[n.id_nageur] = dernier_resultat[0]
+
+        # Appliquer le filtre genre
+        nageurs = [
+            n for n in nageurs
+            if genre_map.get(n.id_nageur, epreuve.genre) == epreuve.genre
+        ]
+
+    # 🔹 Préparer la liste vide (pas encore de résultats)
+    return jsonify({
+        "session_test_id": None,
+        "genre_epreuve": epreuve.genre,
+        "results": [
+            {
+                "id_nageur": n.id_nageur,
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "temps": "",
+                "absence": False
+            }
+            for n in nageurs
+        ]
+    })
+
+
+@coach_bp.post("/tests/save")
+def save_tests():
+    """Créer ou modifier les résultats d’un test technique."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    data = request.get_json()
+    date_str = data.get("date")
+    epreuve_id = data.get("epreuve_id")
+    results = data.get("results", [])
+
+    if not date_str or not epreuve_id:
+        return jsonify({"message": "Date et épreuve requises"}), 400
+
+    # Créer ou récupérer la session test
+    session_test = SessionTest.query.filter_by(date_test=date_str, epreuve_id=epreuve_id).first()
+    if not session_test:
+        session_test = SessionTest(date_test=date_str, epreuve_id=epreuve_id)
+        db.session.add(session_test)
+        db.session.commit()
+
+    # Supprimer les anciens résultats pour les nageurs concernés
+    nageur_ids = [r["id_nageur"] for r in results]
+    ResultatTest.query.filter(
+        ResultatTest.session_test_id == session_test.session_test_id,
+        ResultatTest.nageur_id.in_(nageur_ids)
+    ).delete(synchronize_session=False)
+
+    #  Filtrer côté back selon le genre de l’épreuve pour éviter les erreurs de front
+    epreuve = Epreuve.query.get(epreuve_id)
+    if not epreuve:
+        return jsonify({"message": "Épreuve introuvable"}), 404
+
+    genre_epreuve = epreuve.genre.lower()
+
+    # Si l’épreuve n’est pas mixte → on garde uniquement les nageurs correspondants
+    if genre_epreuve != "mixte":
+        genre_map = {}
+        for n in Nageur.query.filter_by(id_coach=coach.user_id).all():
+            dernier_resultat = (
+                db.session.query(Epreuve.genre)
+                .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
+                .join(ResultatBase, ResultatBase.cec_id == CEC.cec_id)
+                .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+                .filter(ResultatIndividuel.id_nageur == n.id_nageur)
+                .order_by(ResultatBase.resultat_id.desc())
+                .first()
+            )
+            if dernier_resultat:
+                genre_map[n.id_nageur] = dernier_resultat[0]
+
+        #  Supprime les nageurs du mauvais genre
+        results = [
+            r for r in results
+            if genre_map.get(r["id_nageur"], genre_epreuve.capitalize()) == epreuve.genre
+        ]
+
+    # Ajouter les nouveaux
+    for r in results:
+        temps_val = r.get("temps")
+        if not temps_val or str(temps_val).strip() == "":
+            temps_val = "0"  # si vide => 0
+        db.session.add(ResultatTest(
+            nageur_id=r["id_nageur"],
+            session_test_id=session_test.session_test_id,
+            temps=str(temps_val)
+        ))
+
+    db.session.commit()
+    return jsonify({"message": "Résultats enregistrés avec succès."})
+
+@coach_bp.get("/tests/history")
+def get_tests_history():
+    """Renvoie l’historique complet des tests du coach, y compris ceux sans résultats."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    # 🔹 Étape 1 : récupérer tous les tests liés à des nageurs du coach (avec ou sans résultats)
+    # On fait une jointure sur SessionTest + Epreuve + (optionnellement) ResultatTest/Nageur
+    # pour récupérer aussi les sessions créées mais encore vides
+    sessions = (
+        db.session.query(SessionTest)
+        .join(Epreuve, SessionTest.epreuve_id == Epreuve.epreuve_id)
+        .outerjoin(ResultatTest, ResultatTest.session_test_id == SessionTest.session_test_id)
+        .outerjoin(Nageur, Nageur.id_nageur == ResultatTest.nageur_id)
+        .filter(
+            db.or_(
+                Nageur.id_coach == coach.user_id,
+                ResultatTest.session_test_id.is_(None)  # inclut les tests sans résultat
+            )
+        )
+        .distinct()
+        .order_by(SessionTest.date_test.desc())
+        .all()
+    )
+
+    data = []
+    for s in sessions:
+        data.append({
+            "session_test_id": s.session_test_id,
+            "date": s.date_test.isoformat(),
+            "epreuve": f"{s.epreuve.distance}m {s.epreuve.nage} ({s.epreuve.genre})"
+        })
+
+    return jsonify({"tests": data})
+
+@coach_bp.get("/tests/nageurs_by_genre")
+def get_nageurs_by_genre():
+    """Renvoie la liste des nageurs filtrés selon le genre de l'épreuve (basé sur les épreuves faites en championnat)."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    epreuve_id = request.args.get("epreuve_id", type=int)
+    if not epreuve_id:
+        return jsonify({"message": "ID épreuve requis"}), 400
+
+    epreuve = Epreuve.query.get(epreuve_id)
+    if not epreuve:
+        return jsonify({"message": "Épreuve introuvable"}), 404
+
+    genre_epreuve = epreuve.genre  # "Dames", "Messieurs" ou "Mixte"
+    nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+
+    # Si l'épreuve est mixte, inutile de filtrer
+    if genre_epreuve.lower() == "mixte":
+        return jsonify({
+            "genre_epreuve": genre_epreuve,
+            "nageurs": [
+                {
+                    "id_nageur": n.id_nageur,
+                    "nom": n.nom,
+                    "prenom": n.prenom,
+                    "categorie": get_categorie_from_birth_year(n.birth_year),
+                    "temps": ""
+                }
+                for n in nageurs
+            ]
+        })
+
+    # =====================================================
+    # 🔹 DÉDUCTION DU GENRE VIA LES ÉPREUVES DE CHAMPIONNAT
+    # =====================================================
+    genre_map = {}
+
+    for n in nageurs:
+        dernier_resultat = (
+            db.session.query(Epreuve.genre)
+            .join(CEC, CEC.epreuve_id == Epreuve.epreuve_id)
+            .join(ResultatBase, ResultatBase.cec_id == CEC.cec_id)
+            .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+            .filter(ResultatIndividuel.id_nageur == n.id_nageur)
+            .order_by(ResultatBase.resultat_id.desc())
+            .first()
+        )
+        if dernier_resultat:
+            genre_map[n.id_nageur] = dernier_resultat[0]
+
+    # =====================================================
+    # 🔹 Appliquer le filtrage selon le genre
+    # =====================================================
+    nageurs_filtres = [
+        n for n in nageurs
+        if genre_map.get(n.id_nageur, genre_epreuve) == genre_epreuve
+    ]
+
+    return jsonify({
+        "genre_epreuve": genre_epreuve,
+        "nageurs": [
+            {
+                "id_nageur": n.id_nageur,
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "temps": ""
+            } for n in nageurs_filtres
+        ]
+    })
+
+
+@coach_bp.get("/stats")
+def get_stats():
+    """Statistiques de performance et présence sur une période donnée (optionnellement par nageur)."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+    nageur_id = request.args.get("nageur_id", type=int)
+
+    if not start_date or not end_date:
+        return jsonify({"message": "Période requise"}), 400
+
+    nageurs_filter = [Nageur.id_coach == coach.user_id]
+    if nageur_id:
+        nageurs_filter.append(Nageur.id_nageur == nageur_id)
+
+    # ===  Performances ===
+    tests = (
+        db.session.query(SessionTest.date_test, db.func.concat(Epreuve.distance, "m ", Epreuve.nage, " (", Epreuve.genre, ")").label("label"), ResultatTest.temps, Nageur.nom, Nageur.prenom)
+        .join(ResultatTest, SessionTest.session_test_id == ResultatTest.session_test_id)
+        .join(Nageur, ResultatTest.nageur_id == Nageur.id_nageur)
+        .join(Epreuve, SessionTest.epreuve_id == Epreuve.epreuve_id)
+        .filter(
+            *nageurs_filter,
+            SessionTest.date_test.between(start_date, end_date)
+        )
+        .order_by(SessionTest.date_test)
+        .all()
+    )
+
+    perf_data = {}
+    for date_test, label, temps, nom, prenom in tests:
+        val = parse_temps_to_seconds(temps)
+        if val is None:
+          continue
+        if label not in perf_data:
+            perf_data[label] = []
+        perf_data[label].append({
+            "date": date_test.isoformat(),
+            "temps": val,
+            "nageur": f"{prenom} {nom}"
+        })
+
+    # ===  Présences ===
+    pres = (
+        db.session.query(Seance.date, Presence.present)
+        .join(Presence, Seance.seance_id == Presence.seance_id)
+        .join(Nageur, Presence.nageur_id == Nageur.id_nageur)
+        .filter(
+            *nageurs_filter,
+            Seance.date.between(start_date, end_date)
+        )
+        .all()
+    )
+
+    pres_par_jour = {}
+    for date_seance, present in pres:
+        jour = date_seance.isoformat()
+        if jour not in pres_par_jour:
+            pres_par_jour[jour] = {"pres": 0, "abs": 0}
+        if present:
+            pres_par_jour[jour]["pres"] += 1
+        else:
+            pres_par_jour[jour]["abs"] += 1
+
+    presence_data = [
+        {
+            "date": d,
+            "taux_presence": round(
+                (v["pres"] / (v["pres"] + v["abs"])) * 100, 1
+            ) if (v["pres"] + v["abs"]) > 0 else 0
+        }
+        for d, v in sorted(pres_par_jour.items())
+    ]
+
+    return jsonify({
+        "performances": perf_data,
+        "presences": presence_data
+    })
+
+@coach_bp.get("/epreuves")
+def get_epreuves():
+    """Retourne la liste des épreuves disponibles (pour le sélecteur)."""
+    epreuves = Epreuve.query.order_by(Epreuve.distance, Epreuve.nage, Epreuve.genre).all()
+    return jsonify({
+        "epreuves": [
+            {
+                "epreuve_id": e.epreuve_id,
+                "distance": e.distance,
+                "nage": e.nage,
+                "genre": e.genre
+            }
+            for e in epreuves
+        ]
+    })

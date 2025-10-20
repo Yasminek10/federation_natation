@@ -95,10 +95,18 @@ export default function App() {
         }
       />
       <Route
+        path="/coach-dashboard"
+        element={
+          <RequireRole roles={["coach"]}>
+            <CoachDashboard user={currentUser} />
+          </RequireRole>
+        }
+      />
+      <Route
         path="/coach/view"
         element={
           <RequireRole roles={["coach"]}>
-            <CoachView />
+            <CoachView user={currentUser} />
           </RequireRole>
         }
       />

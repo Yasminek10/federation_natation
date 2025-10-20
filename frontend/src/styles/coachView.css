@@ -1,16 +1,74 @@
-.nav-simple .nav-link {
-  color: #555;
-  font-weight: 500;
-  padding: 8px 16px;
+/* === Structure principale === */
+.coach-page {
+  background-color: #f7f9fb;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.coach-container {
+  max-width: 1200px; /* ← Était 1100px, maintenant plus large */
+  width: 95%; /* garde une marge sur les bords */
+  margin: 40px auto;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 40px 50px; /* un peu plus d’air à l’intérieur */
+}
+
+/* === Barre de navigation === */
+.coach-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 10px 5px;
+  margin-bottom: 30px;
+  gap: 10px;
+}
+
+.coach-tab {
+  background: none;
   border: none;
+  color: #666;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
-.nav-simple .nav-link.active {
-  color: #000;
-  border-bottom: 2px solid #0d6efd;
+.coach-tab:hover {
+  background-color: #f0f4ff;
+  color: #0d6efd;
+}
+
+.coach-tab.active {
+  background-color: #e8f0ff;
+  color: #0d6efd;
   font-weight: 600;
+  box-shadow: inset 0 0 0 2px #0d6efd33;
 }
 
-.container {
-  max-width: 900px;
+/* === Contenu === */
+.coach-content {
+  margin-top: 20px;
+  min-height: 60vh;
 }
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .coach-nav {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .coach-tab span {
+    display: none; /* icônes seules sur petit écran */
+  }
+}
+
