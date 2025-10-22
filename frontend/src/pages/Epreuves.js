@@ -6,35 +6,36 @@ import Navbar_Home from "../components/Navbar_Home";
 import ButtonBack from "../components/ButtonBack";
 
 function Epreuves({ user }) {
-  const { public_id } = useParams();
+  const { champId } = useParams();
   const [epreuves, setEpreuves] = useState([]);
+  const [champNom, setChampNom] = useState("");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-
-    fetch(`http://localhost:5000/api/championnats/${public_id}/epreuves`)
+    fetch(`http://localhost:5000/api/championnats/${champId}/epreuves`)
       .then((res) => res.json())
       .then((data) => {
-        setEpreuves(data);
+        setEpreuves(data.epreuves || data); // Compatibilité
+        setChampNom(data.championnat_nom || "");
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [public_id]);
+  }, [champId]);
 
   return (
     <div>
-      {/* ===== Navbar ===== */}
       <Navbar_Home user={user} />
 
       <Container className="mt-5">
         <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-          {/* === Left side (title) === */}
           <div className="d-flex align-items-center gap-3">
             <div>
               <h2 className="fw-bold text-primary mb-1 d-flex align-items-center gap-2">
                 <Trophy size={32} className="text-warning" />
-                Épreuves du Championnat
+                {champNom
+                  ? `Épreuves du ${champNom}`
+                  : "Épreuves du Championnat"}
               </h2>
               <p className="text-muted mb-0">
                 Cliquez sur une épreuve pour voir les résultats détaillés
@@ -42,12 +43,11 @@ function Epreuves({ user }) {
             </div>
           </div>
 
-          {/* === Right side (buttons) === */}
           <div className="d-flex align-items-center gap-2">
             <Button
               variant="success"
               className="px-4 py-2 fw-bold shadow-sm"
-              onClick={() => navigate(`/statistiques/${public_id}`)}
+              onClick={() => navigate(`/statistiques/${champId}`)}
             >
               <BarChart3 size={20} className="me-2" />
               Afficher les statistiques
@@ -56,7 +56,6 @@ function Epreuves({ user }) {
           </div>
         </div>
 
-        {/* ===== Liste des épreuves ===== */}
         <Card className="shadow-lg border-0 rounded-3">
           <Card.Body>
             {loading ? (
@@ -67,10 +66,10 @@ function Epreuves({ user }) {
               <ListGroup variant="flush">
                 {epreuves.map((e) => (
                   <ListGroup.Item
-                    key={e.id}
+                    key={e.epreuve_id || e.public_id}
                     action
                     onClick={() =>
-                      navigate(`/epreuves/${e.public_id}/resultats`)
+                      navigate(`/epreuves/${champId}/${e.public_id}/resultats`)
                     }
                     className="py-3 fw-semibold d-flex justify-content-between align-items-center list-hover"
                   >
@@ -91,7 +90,6 @@ function Epreuves({ user }) {
           </Card.Body>
         </Card>
 
-        {/* ===== Style Hover ===== */}
         <style>
           {`
             .list-hover:hover {

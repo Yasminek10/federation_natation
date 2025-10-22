@@ -1,4 +1,3 @@
-// frontend/src/pages/Resultats.js
 import React, { useEffect, useState } from "react";
 import {
   Container,
@@ -9,51 +8,34 @@ import {
   Col,
   Spinner,
 } from "react-bootstrap";
-import { useParams } from "react-router-dom";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import "../styles/results.css"; // <-- custom styles
+import { useParams, Link } from "react-router-dom";
 import Navbar_Home from "../components/Navbar_Home";
-import { Link } from "react-router-dom";
+import "../styles/results.css";
 
 function Resultats({ user }) {
-  const { public_id } = useParams();
+  const { champId, publicId } = useParams();
   const [resultats, setResultats] = useState([]);
   const [filterClub, setFilterClub] = useState("");
   const [filterCategorie, setFilterCategorie] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Liste dynamique des clubs
+  // === Charger les résultats ===
+  useEffect(() => {
+    fetch(`http://localhost:5000/api/epreuves/${champId}/${publicId}/resultats`)
+      .then((res) => res.json())
+      .then((data) => {
+        setResultats(data); // API renvoie directement la liste
+        setLoading(false);      })
+      .catch(() => setLoading(false));
+  }, [champId, publicId]);
+
+  // === Listes dynamiques pour les filtres ===
   const clubs = Array.from(
     new Set(resultats.map((r) => r.club).filter(Boolean))
   );
-
-  // Liste statique des catégories
-  const categories = [
-    { id: 1, label: "Juniors/Seniors" },
-    { id: 2, label: "Cadets" },
-    { id: 3, label: "Minimes" },
-    { id: 4, label: "Benjamins" },
-    { id: 5, label: "TC" },
-  ];
-
-useEffect(() => {
-  fetch(`http://localhost:5000/api/epreuves/${public_id}/resultats`)
-    .then((res) => res.json())
-    .then((data) => {
-      setResultats(data);
-      setLoading(false);
-    })
-    .catch(() => setLoading(false));
-}, [public_id]);
-
+  const categories = Array.from(
+    new Set(resultats.map((r) => r.categorie).filter(Boolean))
+  );
 
   // === Appliquer filtres ===
   const filtered = resultats.filter((r) => {
@@ -73,15 +55,14 @@ useEffect(() => {
 
   return (
     <div>
-      {/* ===== Navbar ===== */}
       <Navbar_Home user={user} />
+
       <Container className="mt-4">
-        <h2 className="text-center mb-4"> Résultats de l'épreuve</h2>
+        <h2 className="text-center mb-4">Résultats de l'épreuve</h2>
 
         {/* === Filtres === */}
         <Card className="p-3 mb-4 shadow-sm">
           <Row className="g-3">
-            {/* Filtre club */}
             <Col xs={12} md={6} lg={4}>
               <Form.Select
                 value={filterClub}
@@ -96,7 +77,6 @@ useEffect(() => {
               </Form.Select>
             </Col>
 
-            {/* Filtre catégorie */}
             <Col xs={12} md={6} lg={4}>
               <Form.Select
                 value={filterCategorie}
@@ -104,14 +84,15 @@ useEffect(() => {
               >
                 <option value="">Toutes catégories</option>
                 {categories.map((cat) => (
-                  <option key={cat.id} value={cat.label}>
-                    {cat.label}
+                  <option key={cat} value={cat}>
+                    {cat}
                   </option>
                 ))}
               </Form.Select>
             </Col>
+
             <Col>
-              <Link to={`/epreuves/${public_id}/cumul`}>
+              <Link to={`/epreuves/${champId}/${publicId}/cumul`}>
                 <button className="btn btn-primary">
                   Afficher le cumul des points
                 </button>
@@ -120,7 +101,7 @@ useEffect(() => {
           </Row>
         </Card>
 
-        {/* === Tableau === */}
+        {/* === Tableau des résultats === */}
         <Card className="shadow-sm mb-4">
           <Card.Body>
             <h5 className="mb-3">Classement</h5>
@@ -139,16 +120,13 @@ useEffect(() => {
                 </thead>
                 <tbody>
                   {(() => {
-                    // On trie les résultats par catégorie (pour regrouper)
                     const sorted = [...filtered].sort((a, b) =>
                       (a.categorie || "").localeCompare(b.categorie || "")
                     );
-
                     let lastCategorie = null;
                     const rows = [];
 
                     sorted.forEach((r, i) => {
-                      // Quand la catégorie change → on insère une ligne séparatrice
                       if (r.categorie !== lastCategorie) {
                         rows.push(
                           <tr
@@ -162,8 +140,6 @@ useEffect(() => {
                         );
                         lastCategorie = r.categorie;
                       }
-
-                      // Puis on insère la ligne normale du nageur
                       rows.push(
                         <tr key={`res-${i}`}>
                           <td>{r.place}</td>
@@ -184,22 +160,6 @@ useEffect(() => {
             </div>
           </Card.Body>
         </Card>
-
-        {/* === Graphiques === */}
-        {/* <Card className="shadow-sm">
-        <Card.Body>
-          <h5 className="mb-3">Répartition des points par club</h5>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={filtered}>
-              <XAxis dataKey="club" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="points" fill="#0d6efd" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card.Body>
-      </Card> */}
       </Container>
     </div>
   );

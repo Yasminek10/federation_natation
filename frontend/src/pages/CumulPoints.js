@@ -1,23 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Container, Table, Card, Spinner, Button } from "react-bootstrap";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 import Navbar_Home from "../components/Navbar_Home";
 
 function CumulPoints({ user }) {
-  const { public_id } = useParams();
+  const { publicId } = useParams();
   const [cumul, setCumul] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/epreuves/${public_id}/resultats_cumul`)
-      .then(res => res.json())
-      .then(data => {
+    fetch(`http://localhost:5000/api/epreuves/${publicId}/resultats_cumul`)
+      .then((res) => res.json())
+      .then((data) => {
         setCumul(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [public_id]);
+  }, [publicId]);
 
   if (loading) {
     return (
@@ -74,7 +82,7 @@ function CumulPoints({ user }) {
 
         {/* Bouton retour */}
         <div className="text-center">
-          <Link to={`/epreuves/${public_id}/resultats`}>
+          <Link to={`/epreuves/${publicId}/resultats`}>
             <Button variant="secondary">⬅ Retour aux résultats</Button>
           </Link>
         </div>

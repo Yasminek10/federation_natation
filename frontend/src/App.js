@@ -51,20 +51,17 @@ export default function App() {
         path="/championnats"
         element={<Championnats user={currentUser} />}
       />
-      <Route
-        path="/championnats/:public_id/epreuves"
+      <Route path="/championnats/:champId/epreuves"
         element={<Epreuves user={currentUser} />}
       />
-      <Route
-        path="/epreuves/:public_id/resultats"
+       <Route path="/epreuves/:champId/:publicId/resultats"
         element={<Resultats user={currentUser} />}
       />
-      <Route
-        path="/epreuves/:public_id/cumul"
+       <Route path="/epreuves/:champId/:publicId/cumul"
         element={<CumulPoints user={currentUser} />}
       />
       <Route
-        path="/statistiques/:public_id"
+        path="/statistiques/:publicId"
         element={<Statistiques user={currentUser} />}
       />
 

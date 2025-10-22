@@ -9,23 +9,22 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 
-
-export default function ClassementChampionnat({ public_id  }) {
+export default function ClassementChampionnat({ champId }) {
   const [championnat, setChampionnat] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!public_id) return;
+    if (!champId) return;
     setLoading(true);
     axios
-      .get(`http://localhost:5000/api/bilan/cumul_points_clubs/${public_id }`)
+      .get(`http://localhost:5000/api/bilan/cumul_points_clubs/${champId}`)
       .then((res) => setChampionnat(res.data))
       .catch((err) => {
         console.error("Erreur fetch cumul:", err);
         setChampionnat(null);
       })
       .finally(() => setLoading(false));
-  }, [public_id]);
+  }, [champId]);
 
   if (loading) {
     return (
@@ -59,9 +58,7 @@ export default function ClassementChampionnat({ public_id  }) {
 
   return (
     <Container className="mb-5 mt-5" style={{ maxWidth: "1400px" }}>
-       
       <Card className="shadow-sm border-0 rounded-3 mb-4">
-        
         <Card.Body>
           <h5 className="fw-bold text-primary  mb-3">Top 3 — Points cumulés</h5>
 
@@ -106,7 +103,7 @@ export default function ClassementChampionnat({ public_id  }) {
       {/* Classement détaillé par catégorie */}
       <Accordion alwaysOpen>
         {(championnat.categories || []).map((cat, idx) => (
-          <Accordion.Item eventKey={String(idx)} key={cat.public_id ?? idx}>
+          <Accordion.Item eventKey={String(idx)} key={cat.champId ?? idx}>
             <Accordion.Header>
               <span className="fw-bold text-primary">{cat.categorie}</span>
             </Accordion.Header>
@@ -133,7 +130,7 @@ export default function ClassementChampionnat({ public_id  }) {
                     </tr>
                   ) : (
                     (cat.classement || []).map((club, i) => (
-                      <tr key={club.public_id ?? i}>
+                      <tr key={club.champId ?? i}>
                         <td>
                           <Badge
                             bg={

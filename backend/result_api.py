@@ -1,12 +1,12 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, abort
 from sqlalchemy import func, and_
 from db import db
 from db import (
-    ResultatBase, EquipeMembre, ResultatIndividuel, ResultatRelais,
-    Nageur, Equipe, CEC, Club, Epreuve, Categorie, Minimas
+    ResultatBase, EquipeMembre, ResultatIndividuel, ResultatRelais, 
+    Nageur, Equipe, CEC, Club, Epreuve, Categorie, Minimas, Championnat
 )
 from sqlalchemy.orm import aliased
-from ingest import time_to_seconds, seconds_to_str, is_tunisian  # helpers existants
+import uuid
 
 results_yass_bp = Blueprint("results_yass", __name__, url_prefix="/api/epreuves")
 
@@ -16,9 +16,9 @@ res_relais = aliased(ResultatRelais)
 ClubIndiv = aliased(Club)
 ClubRelais = aliased(Club)
 
-# ========================
-#   Fonctions utilitaires
-# ========================
+# -----------------------------
+# Fonctions utilitaires
+# -----------------------------
 def convert_time_to_seconds(time_str: str):
     if not time_str:
         return None
@@ -34,42 +34,45 @@ def convert_time_to_seconds(time_str: str):
     except:
         return None
 
-
-def _is_eligible_swimmer(n: Nageur) -> bool:
-    return (is_tunisian(n.nationalite) or bool(n.eligible_points))
-
-
-def _meet_minima(epreuve_id: int, categorie_id: int, temps: str | None) -> bool:
-    if not temps:
-        return False
-    m = Minimas.query.filter_by(epreuve_id=epreuve_id, categorie_id=categorie_id).first()
-    if not m:
-        return True
-    t = time_to_seconds(temps)
-    tm = time_to_seconds(m.temp_min)
-    return (t is not None and tm is not None and t <= tm)
-
-
 def _cap(val, default):
-    try:
-        return int(val) if val is not None else int(default)
-    except:
-        return int(default)
+    """Retourne val si défini, sinon default"""
+    return val if val is not None else default
 
+def _meet_minima(epreuve_id, categorie_id, temps_str):
+    min_time = (
+        db.session.query(Minimas.temp_min)
+        .filter_by(epreuve_id=epreuve_id, categorie_id=categorie_id)
+        .scalar()
+    )
+    if not min_time:
+        return True
+    t = convert_time_to_seconds(temps_str)
+    min_sec = convert_time_to_seconds(min_time)
+    return t is not None and t <= min_sec
 
-# ========================
-#   ROUTE 1 : Résultats détaillés
-# ========================
-@results_yass_bp.get("/<uuid:public_id>/resultats")
-def get_resultats(public_id):
-    """
-    Récupère les résultats pour une épreuve donnée via son UUID.
-    """
-    epreuve = Epreuve.query.filter_by(public_id=public_id).first_or_404()
+def _is_eligible_swimmer(nageur):
+    # Exemple simple : vérifie que le nageur est tunisien
+    return nageur.nationalite and nageur.nationalite.strip().upper() == "TUN"
 
+# ===============================
+# ROUTES AVEC UUID
+# ===============================
+
+# === Route 1 : résultats détaillés ===
+@results_yass_bp.get("/<uuid:champ_uuid>/<uuid:epreuve_uuid>/resultats")
+def get_resultats(champ_uuid, epreuve_uuid):
+    champ = db.session.query(Championnat).filter_by(public_id=str(champ_uuid)).first()
+    epreuve = db.session.query(Epreuve).filter_by(public_id=str(epreuve_uuid)).first()
+    if not champ or not epreuve:
+        abort(404, description="Championship or Epreuve not found")
+
+    champ_id, epreuve_id = champ.champ_id, epreuve.epreuve_id
+
+    # Vérifier que le CEC existe pour ce championnat ET cette épreuve
     cec_subq = (
         db.session.query(CEC.cec_id)
-        .filter(CEC.epreuve_id == epreuve.epreuve_id)
+        .filter(CEC.epreuve_id == epreuve_id)
+        .filter(CEC.champ_id == champ_id)
         .subquery()
     )
 
@@ -106,7 +109,6 @@ def get_resultats(public_id):
     res_list = []
     for r in resultats:
         if r.nom:
-            # Individuel
             res_list.append({
                 "id": r.resultat_id,
                 "place": r.place,
@@ -122,7 +124,6 @@ def get_resultats(public_id):
                 "categorie": r.categorie,
             })
         elif r.equipe_id:
-            # Relais
             nageurs = (
                 db.session.query(Nageur.nom, Nageur.prenom)
                 .join(EquipeMembre, EquipeMembre.nageur_id == Nageur.id_nageur)
@@ -148,20 +149,17 @@ def get_resultats(public_id):
 
     return jsonify(res_list)
 
-
-# ========================
-#   ROUTE 2 : Cumul des points
-# ========================
-@results_yass_bp.get("/<uuid:public_id>/resultats_cumul")
-def get_resultats_cumul(public_id):
-    """
-    Calcule le cumul des points pour une épreuve donnée (UUID).
-    """
-    epreuve = Epreuve.query.filter_by(public_id=public_id).first_or_404()
+# === Route 2 : cumul des points ===
+@results_yass_bp.get("/<uuid:epreuve_uuid>/resultats_cumul")
+def get_resultats_cumul(epreuve_uuid):
+    epreuve = db.session.query(Epreuve).filter_by(public_id=str(epreuve_uuid)).first()
+    if not epreuve:
+        abort(404, description="Epreuve not found")
+    epreuve_id = epreuve.epreuve_id
 
     cec_subq = (
         db.session.query(CEC.cec_id)
-        .filter(CEC.epreuve_id == epreuve.epreuve_id)
+        .filter(CEC.epreuve_id == epreuve_id)
         .subquery()
     )
 
@@ -200,11 +198,9 @@ def get_resultats_cumul(public_id):
     cumul = {}
     for r in resultats:
         club_name = r.club_indiv or r.club_relais
-        if not club_name:
+        if not club_name or r.place is None:
             continue
 
-        if r.place is None:
-            continue
         max_places = r.max_places_indiv or r.max_places_relay
         if max_places and r.place > max_places:
             continue
@@ -226,25 +222,20 @@ def get_resultats_cumul(public_id):
 
     return jsonify(cumul_list)
 
+# === Route 3 : statistiques cumul par championnat ===
+@results_yass_bp.get("/statistiques/cumul/<uuid:champ_uuid>")
+def get_stats_cumul(champ_uuid):
+    champ = db.session.query(Championnat).filter_by(public_id=str(champ_uuid)).first()
+    if not champ:
+        abort(404, description="Championship not found")
+    champ_id = champ.champ_id
 
-# ========================
-#   ROUTE 3 : Statistiques cumulées par championnat (UUID)
-# ========================
-@results_yass_bp.get("/statistiques/cumul/<uuid:public_id>")
-def get_stats_cumul(public_id):
-    """
-    Calcule les statistiques cumulées par épreuve pour un championnat (UUID).
-    """
-    from db import Championnat
-
-    champ = Championnat.query.filter_by(public_id=public_id).first_or_404()
     cumul = {}
-
     cecs = (
         db.session.query(CEC)
         .join(Epreuve, Epreuve.epreuve_id == CEC.epreuve_id)
         .join(Categorie, Categorie.categorie_id == CEC.categorie_id)
-        .filter(CEC.champ_id == champ.champ_id)
+        .filter(CEC.champ_id == champ_id)
         .all()
     )
 
@@ -252,9 +243,8 @@ def get_stats_cumul(public_id):
         epr = cec.epreuve
         cat = cec.categorie
 
-        # === Relais ===
         if epr.is_relay:
-            cap = _cap(cat.max_places_relay, 8)
+            cap_val = _cap(cat.max_places_relay, 8)
             q = (
                 db.session.query(ResultatBase, ResultatRelais, Equipe)
                 .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
@@ -263,14 +253,10 @@ def get_stats_cumul(public_id):
                     ResultatBase.cec_id == cec.cec_id,
                     ResultatBase.statut == "OK",
                     ResultatBase.place.isnot(None),
-                    ResultatBase.place <= cap,
+                    ResultatBase.place <= cap_val,
                 )
             )
-
             for base, _, eq in q:
-                if not _meet_minima(epr.epreuve_id, cat.categorie_id, base.temps):
-                    continue
-
                 mems = (
                     db.session.query(Nageur)
                     .join(EquipeMembre, EquipeMembre.nageur_id == Nageur.id_nageur)
@@ -279,19 +265,15 @@ def get_stats_cumul(public_id):
                 )
                 if not mems or not all(_is_eligible_swimmer(n) for n in mems):
                     continue
-
                 key = (epr.distance, epr.nage)
                 if key not in cumul:
                     cumul[key] = {"distance": epr.distance, "nage": epr.nage, "dames": 0, "messieurs": 0}
-
                 if epr.genre.upper().startswith("DAM"):
                     cumul[key]["dames"] += int(base.points or 0) * 2
                 else:
                     cumul[key]["messieurs"] += int(base.points or 0) * 2
-
-        # === Individuels ===
         else:
-            cap = _cap(cat.max_places_indiv, 8)
+            cap_val = _cap(cat.max_places_indiv, 8)
             q = (
                 db.session.query(ResultatBase, ResultatIndividuel, Nageur)
                 .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
@@ -300,20 +282,17 @@ def get_stats_cumul(public_id):
                     ResultatBase.cec_id == cec.cec_id,
                     ResultatBase.statut == "OK",
                     ResultatBase.place.isnot(None),
-                    ResultatBase.place <= cap,
+                    ResultatBase.place <= cap_val,
                 )
             )
-
             for base, _, nageur in q:
                 if not _is_eligible_swimmer(nageur):
                     continue
                 if not _meet_minima(epr.epreuve_id, cat.categorie_id, base.temps):
                     continue
-
                 key = (epr.distance, epr.nage)
                 if key not in cumul:
                     cumul[key] = {"distance": epr.distance, "nage": epr.nage, "dames": 0, "messieurs": 0}
-
                 if epr.genre.upper().startswith("DAM"):
                     cumul[key]["dames"] += int(base.points or 0)
                 else:
