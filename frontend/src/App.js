@@ -61,7 +61,7 @@ export default function App() {
         element={<CumulPoints user={currentUser} />}
       />
       <Route
-        path="/statistiques/:publicId"
+        path="/statistiques/:champId"
         element={<Statistiques user={currentUser} />}
       />
 
