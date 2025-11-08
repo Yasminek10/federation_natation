@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Offcanvas, Dropdown } from "react-bootstrap";
+import { FaChartLine } from "react-icons/fa";
 import {
   FaBars,
   FaCog,
@@ -47,11 +48,12 @@ export default function Navbar({ user }) {
     ],
   };
 
+  const COACH_DASHBOARD = { title: "Coach View", path: "/coach/view", icon: <FaChartLine /> };
   const menu =
     role === "admin"
       ? [HOME, SCRAPING, OCR, RULES, CREATE]
       : role === "coach"
-      ? [HOME, SCRAPING, OCR, RULES]
+      ? [HOME, SCRAPING, OCR, RULES, COACH_DASHBOARD]
       : [HOME, SCRAPING];
 
   const isActive = (p) => pathname.startsWith(p);

@@ -7,7 +7,7 @@ import CoachTests from "./CoachTests";
 import CoachStats from "./CoachStats";
 import BilanCoach from "./BilanCoach";
 import "../styles/coachView.css";
-import Navbar_Home from "../components/Navbar_Home";
+import Navbar from "../components/Navbar";
 
 export default function CoachView({ user }) {
   const [activeTab, setActiveTab] = useState("nageurs");
@@ -23,7 +23,7 @@ export default function CoachView({ user }) {
   return (
     <div className="coach-page">
       {/* ===== Navbar globale ===== */}
-      <Navbar_Home user={user} />
+      <Navbar user={user} />
 
       {/* ===== Contenu principal ===== */}
       <div className="coach-container">

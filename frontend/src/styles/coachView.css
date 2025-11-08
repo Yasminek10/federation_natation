@@ -14,6 +14,7 @@
   border-radius: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 40px 50px; /* un peu plus d’air à l’intérieur */
+  margin-top: 120px;
 }
 
 /* === Barre de navigation === */

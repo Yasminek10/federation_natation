@@ -51,13 +51,13 @@ export default function Navbar_Home({ user }) {
             </Link>
           </li>
           {/* ===== VUE COACH ===== */}
-          {user?.role === "coach" && (
+          {/*{user?.role === "coach" && (
             <li>
               <Link to="/coach/view" onClick={() => setMenuOpen(false)}>
                 Vue Coach
               </Link>
             </li>
-          )}
+          )}*/}
 
           {user?.role === "admin" && (
             <li>
