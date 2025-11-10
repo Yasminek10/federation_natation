@@ -363,6 +363,68 @@ def export_presences_completes():
         download_name=filename
     )
 
+@coach_bp.get("/presences/export_periode")
+def export_presences_periode():
+    """Exporter toutes les absences sur une période (start → end) en CSV."""
+    coach = _get_current_coach()
+    if not coach:
+        return jsonify({"message": "Coach non trouvé"}), 404
+
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    if not start_date or not end_date:
+        return jsonify({"message": "Période requise (start et end)"}), 400
+
+    # 🔹 Charger les séances de la période
+    seances = (
+        Seance.query
+        .filter(Seance.date.between(start_date, end_date))
+        .order_by(Seance.date.asc(), Seance.session.asc())
+        .all()
+    )
+
+    nageurs = Nageur.query.filter_by(id_coach=coach.user_id).all()
+    rows = []
+
+    for s in seances:
+        pres_dict = {p.nageur_id: p.present for p in s.presences}
+
+        for n in nageurs:
+            rows.append({
+                "date": s.date.isoformat(),
+                "session": s.session,
+                "lieu": s.lieu_training,
+                "nom": n.nom,
+                "prenom": n.prenom,
+                "categorie": get_categorie_from_birth_year(n.birth_year),
+                "present": pres_dict.get(n.id_nageur, True)
+            })
+
+    # 🔹 Génération du CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Session", "Lieu", "Nom", "Prénom", "Catégorie", "Présence"])
+    for r in rows:
+        writer.writerow([
+            r["date"],
+            r["session"],
+            r["lieu"],
+            r["nom"],
+            r["prenom"],
+            r["categorie"],
+            "Présent" if r["present"] else "Absent"
+        ])
+
+    output.seek(0)
+    filename = f"absences_{start_date}_au_{end_date}.csv"
+    return send_file(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
 # ======================================================
 # 🔹 Historique des séances du coach
 # ======================================================
@@ -797,7 +859,7 @@ def get_nageurs_by_genre():
 
 @coach_bp.get("/stats")
 def get_stats():
-    """Statistiques de performance et présence sur une période donnée (optionnellement par nageur)."""
+    """Statistiques de performance, d'analyse des absences et classement par moyenne sur la période donnée."""
     coach = _get_current_coach()
     if not coach:
         return jsonify({"message": "Coach non trouvé"}), 404
@@ -805,17 +867,34 @@ def get_stats():
     start_date = request.args.get("start")
     end_date = request.args.get("end")
     nageur_id = request.args.get("nageur_id", type=int)
+    epreuve_label = request.args.get("epreuve_label")
 
     if not start_date or not end_date:
         return jsonify({"message": "Période requise"}), 400
 
+    # 🔹 Filtrer les nageurs encadrés
     nageurs_filter = [Nageur.id_coach == coach.user_id]
     if nageur_id:
         nageurs_filter.append(Nageur.id_nageur == nageur_id)
 
-    # ===  Performances ===
+    # ======================================================
+    # === 1️⃣ Performances individuelles ====================
+    # ======================================================
     tests = (
-        db.session.query(SessionTest.date_test, db.func.concat(Epreuve.distance, "m ", Epreuve.nage, " (", Epreuve.genre, ")").label("label"), ResultatTest.temps, Nageur.nom, Nageur.prenom)
+        db.session.query(
+            SessionTest.date_test,
+            db.func.concat(
+                Epreuve.distance,
+                "m ",
+                Epreuve.nage,
+                " (",
+                Epreuve.genre,
+                ")"
+            ).label("label"),
+            ResultatTest.temps,
+            Nageur.nom,
+            Nageur.prenom
+        )
         .join(ResultatTest, SessionTest.session_test_id == ResultatTest.session_test_id)
         .join(Nageur, ResultatTest.nageur_id == Nageur.id_nageur)
         .join(Epreuve, SessionTest.epreuve_id == Epreuve.epreuve_id)
@@ -827,11 +906,14 @@ def get_stats():
         .all()
     )
 
+    # Construire performances par épreuve
     perf_data = {}
     for date_test, label, temps, nom, prenom in tests:
         val = parse_temps_to_seconds(temps)
         if val is None:
-          continue
+            continue
+        if epreuve_label and label != epreuve_label:
+            continue
         if label not in perf_data:
             perf_data[label] = []
         perf_data[label].append({
@@ -840,42 +922,83 @@ def get_stats():
             "nageur": f"{prenom} {nom}"
         })
 
-    # ===  Présences ===
-    pres = (
-        db.session.query(Seance.date, Presence.present)
-        .join(Presence, Seance.seance_id == Presence.seance_id)
-        .join(Nageur, Presence.nageur_id == Nageur.id_nageur)
+    # ======================================================
+    # === 2️⃣ Analyse des absences ==========================
+    # ======================================================
+    pres_par_nageur = (
+        db.session.query(
+            Nageur.id_nageur,
+            Nageur.nom,
+            Nageur.prenom,
+            db.func.sum(db.case((Presence.present == True, 1), else_=0)).label("nb_presences"),
+            db.func.sum(db.case((Presence.present == False, 1), else_=0)).label("nb_absences")
+        )
+        .join(Presence, Presence.nageur_id == Nageur.id_nageur)
+        .join(Seance, Presence.seance_id == Seance.seance_id)
         .filter(
             *nageurs_filter,
             Seance.date.between(start_date, end_date)
         )
+        .group_by(Nageur.id_nageur, Nageur.nom, Nageur.prenom)
         .all()
     )
 
-    pres_par_jour = {}
-    for date_seance, present in pres:
-        jour = date_seance.isoformat()
-        if jour not in pres_par_jour:
-            pres_par_jour[jour] = {"pres": 0, "abs": 0}
-        if present:
-            pres_par_jour[jour]["pres"] += 1
-        else:
-            pres_par_jour[jour]["abs"] += 1
+    absences_data = []
+    for n_id, nom, prenom, pres, abs_ in pres_par_nageur:
+        total = (pres or 0) + (abs_ or 0)
+        taux = round((pres / total) * 100, 1) if total > 0 else 0
+        absences_data.append({
+            "nageur": f"{prenom} {nom}",
+            "presences": pres or 0,
+            "absences": abs_ or 0,
+            "taux_presence": taux
+        })
 
-    presence_data = [
-        {
-            "date": d,
-            "taux_presence": round(
-                (v["pres"] / (v["pres"] + v["abs"])) * 100, 1
-            ) if (v["pres"] + v["abs"]) > 0 else 0
-        }
-        for d, v in sorted(pres_par_jour.items())
-    ]
+    # ======================================================
+    # === 3️⃣ Classement par moyenne ========================
+    # ======================================================
+    classement_data = {}
 
+    # Déterminer si la période couvre plusieurs jours
+    multi_jours = start_date != end_date
+
+    # Préparer structure : label → { nageur: [temps...] }
+    grouped = {}
+    for date_test, label, temps, nom, prenom in tests:
+        val = parse_temps_to_seconds(temps)
+        if val is None:
+            continue
+        if epreuve_label and label != epreuve_label:
+            continue
+        nageur = f"{prenom} {nom}"
+        grouped.setdefault(label, {}).setdefault(nageur, []).append(val)
+
+    # Calculer moyenne par nageur
+    for label, nageurs_dict in grouped.items():
+        moyennes = []
+        for nageur, temps_list in nageurs_dict.items():
+            if not temps_list:
+                continue
+            moyenne = (
+                sum(temps_list) / len(temps_list)
+                if multi_jours and len(temps_list) > 1
+                else temps_list[-1]  # si un seul jour → dernier temps
+            )
+            moyennes.append({"nageur": nageur, "moyenne": moyenne})
+
+        # Trier par moyenne croissante
+        moyennes.sort(key=lambda x: x["moyenne"])
+        classement_data[label] = moyennes
+
+    # ======================================================
+    # === 4️⃣ Retour final =================================
+    # ======================================================
     return jsonify({
         "performances": perf_data,
-        "presences": presence_data
+        "absences_detail": absences_data,
+        "classements": classement_data
     })
+
 
 @coach_bp.get("/epreuves")
 def get_epreuves():

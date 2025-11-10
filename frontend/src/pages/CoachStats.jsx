@@ -7,8 +7,8 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 export default function CoachStats() {
@@ -22,17 +22,16 @@ export default function CoachStats() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // 🗓️ Au chargement : définir la période du dernier mois
+  // 🗓️ Charger la période du dernier mois
   useEffect(() => {
     const today = new Date();
     const lastMonth = new Date();
     lastMonth.setMonth(today.getMonth() - 1);
-
     setStart(lastMonth.toISOString().split("T")[0]);
     setEnd(today.toISOString().split("T")[0]);
   }, []);
 
-  // 👥 Charger les nageurs du coach
+  // 👥 Charger les nageurs
   useEffect(() => {
     fetch("http://localhost:5000/api/coach/nageurs/mine", { credentials: "include" })
       .then((res) => res.json())
@@ -40,7 +39,7 @@ export default function CoachStats() {
       .catch((err) => console.error("Erreur chargement nageurs :", err));
   }, []);
 
-  // 🏊‍♂️ Charger les épreuves disponibles
+  // 🏊‍♂️ Charger les épreuves
   useEffect(() => {
     fetch("http://localhost:5000/api/coach/epreuves", { credentials: "include" })
       .then((res) => res.json())
@@ -48,13 +47,7 @@ export default function CoachStats() {
       .catch((err) => console.error("Erreur chargement épreuves :", err));
   }, []);
 
-  // 🚀 Charger automatiquement les stats au démarrage
-  useEffect(() => {
-    if (start && end) handleFetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [start, end]);
-
-  // ⚙️ Fonction de récupération des statistiques
+  // 🚀 Charger les stats
   const handleFetch = async () => {
     if (!start || !end) return;
     setLoading(true);
@@ -77,9 +70,23 @@ export default function CoachStats() {
     }
   };
 
+  useEffect(() => {
+    if (start && end) handleFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, end]);
+
+  // === Helpers ===
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return isNaN(d)
+      ? dateStr
+      : d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  };
+
+  // === Rendu ===
   return (
     <div className="container py-4">
-      <h3 className="text-center mb-4"> Statistiques du Coach</h3>
+      <h3 className="text-center mb-4">Statistiques du Coach</h3>
 
       {/* === Filtres === */}
       <div className="d-flex flex-wrap justify-content-center gap-3 mb-4">
@@ -111,7 +118,7 @@ export default function CoachStats() {
             value={selectedEpreuve}
             onChange={(e) => setSelectedEpreuve(e.target.value)}
           >
-            <option value="">Toutes les épreuves</option>
+            <option value="">Choisir une épreuve</option>
             {epreuves.map((e) => (
               <option key={e.epreuve_id} value={`${e.distance}m ${e.nage} (${e.genre})`}>
                 {e.distance}m {e.nage} ({e.genre})
@@ -127,94 +134,143 @@ export default function CoachStats() {
 
       {message && <Alert>{message}</Alert>}
 
-      {/* === Graphique présence === */}
-      {stats?.presences?.length > 0 && (
-        <div className="mb-5">
-          <h5 className="text-center">Taux de présence (%)</h5>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={stats.presences}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis domain={[0, 100]} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="taux_presence" stroke="#28a745" name="Présence %" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* === Graphique performances === */}
-{stats?.performances && Object.keys(stats.performances).length > 0 && (
-  <div>
-    <h5 className="text-center">Évolution des performances (temps en s)</h5>
-    {Object.entries(stats.performances)
-      .filter(([label]) => !selectedEpreuve || label === selectedEpreuve)
-      .map(([label, data]) => {
-        // 🔹 Regrouper les données par nageur
-        const grouped = {};
-        data.forEach((d) => {
-          if (!grouped[d.nageur]) grouped[d.nageur] = [];
-          grouped[d.nageur].push({ date: d.date, temps: d.temps });
-        });
-
-        // 🔹 Fusionner toutes les dates uniques
-        const allDates = Array.from(new Set(data.map((d) => d.date))).sort();
-
-        // 🔹 Construire un dataset global : une ligne = une date, colonnes = nageurs
-        const mergedData = allDates.map((date) => {
-          const row = { date };
-          Object.entries(grouped).forEach(([nageur, values]) => {
-            const found = values.find((v) => v.date === date);
-            row[nageur] = found ? parseFloat(found.temps) : null;
-          });
-          return row;
-        });
-
-        // 🔹 Formateur de date court (JJ/MM)
-        const formatDate = (dateStr) => {
-          const d = new Date(dateStr);
-          if (isNaN(d)) return dateStr; // sécurité
-          return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
-        };
-
-        return (
-          <div key={label} className="my-4">
-            <h6 className="text-center">{label}</h6>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mergedData}>
+      {/* === Performances === */}
+      {selectedEpreuve ? (
+        stats?.performances?.[selectedEpreuve]?.length > 0 ? (
+          <div className="mt-4">
+            <h5 className="text-center mb-3">Performances — {selectedEpreuve}</h5>
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={stats.performances[selectedEpreuve]}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={formatDate} />
                 <YAxis />
                 <Tooltip
-                  labelFormatter={(label) =>
-                    `Date : ${formatDate(label)}`
+                  formatter={(val, name, entry) =>
+                    `${entry.payload.nageur} : ${val.toFixed(2)} s`
                   }
+                  labelFormatter={(label) => `Date : ${formatDate(label)}`}
                 />
-                {Object.keys(grouped).map((nageur, idx) => (
-                  <Line
-                    key={nageur}
-                    type="monotone"
-                    dataKey={nageur}
-                    stroke={`hsl(${(idx * 60) % 360}, 70%, 50%)`}
-                    connectNulls
-                    dot
-                  />
-                ))}
+                <Legend />
+                {[...new Set(stats.performances[selectedEpreuve].map((d) => d.nageur))].map(
+                  (nageur, i) => (
+                    <Line
+                      key={nageur}
+                      type="monotone"
+                      dataKey="temps"
+                      data={stats.performances[selectedEpreuve].filter(
+                        (d) => d.nageur === nageur
+                      )}
+                      name={nageur}
+                      stroke={`hsl(${i * 60}, 70%, 50%)`}
+                      dot
+                    />
+                  )
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
-        );
-      })}
-  </div>
-)}
+        ) : (
+          <p className="text-center text-muted">
+            Aucun résultat de test pour cette épreuve sur la période sélectionnée.
+          </p>
+        )
+      ) : (
+        <p className="text-center text-muted">
+          ⚠️ Veuillez choisir une épreuve pour visualiser les performances.
+        </p>
+      )}
 
-      {/* === Aucun résultat === */}
-      {stats &&
-        !stats.presences?.length &&
-        Object.keys(stats.performances || {}).length === 0 && (
-          <p className="text-center text-muted mt-4">Aucune donnée trouvée sur cette période.</p>
+      {/* === Classement par moyenne === */}
+      {stats?.classements && selectedEpreuve && stats.classements[selectedEpreuve] ? (
+        <div className="mt-5">
+          <h5 className="text-center mb-3">
+            Classement par moyenne — {selectedEpreuve}
+          </h5>
+          <div className="table-responsive">
+            <table className="table table-bordered text-center align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Rang</th>
+                  <th>Nageur</th>
+                  <th>Moyenne (s)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.classements[selectedEpreuve].map((r, i) => (
+                  <tr key={r.nageur}>
+                    <td>
+                      <strong
+                        className={
+                          i === 0
+                            ? "text-success"
+                            : i === 1
+                            ? "text-primary"
+                            : i === 2
+                            ? "text-warning"
+                            : ""
+                        }
+                      >
+                        {i + 1}
+                      </strong>
+                    </td>
+                    <td>{r.nageur}</td>
+                    <td>{r.moyenne?.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : selectedEpreuve && (
+        <p className="text-center text-muted mt-3">
+          Aucun classement disponible pour cette épreuve.
+        </p>
+      )}
+
+      {/* === Analyse des absences (tableau + message si vide) === */}
+      <div className="mt-5">
+        <h5 className="text-center mb-3">Analyse des absences</h5>
+        {stats?.absences_detail?.length > 0 ? (
+          <div className="table-responsive mt-4">
+            <table className="table table-striped text-center align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Nageur</th>
+                  <th>Présences</th>
+                  <th>Absences</th>
+                  <th>Taux de présence (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.absences_detail.map((n) => (
+                  <tr key={n.nageur}>
+                    <td>{n.nageur}</td>
+                    <td>{n.presences}</td>
+                    <td>{n.absences}</td>
+                    <td>
+                      <strong
+                        className={
+                          n.taux_presence >= 90
+                            ? "text-success"
+                            : n.taux_presence >= 75
+                            ? "text-warning"
+                            : "text-danger"
+                        }
+                      >
+                        {n.taux_presence}
+                      </strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-center text-muted">
+            Aucune donnée d’absence sur cette période.
+          </p>
         )}
+      </div>
     </div>
   );
 }

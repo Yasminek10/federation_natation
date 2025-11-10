@@ -23,6 +23,9 @@ export default function CoachAbsences() {
   const [searchTerm, setSearchTerm] = useState(""); // 🔍 Recherche globale pour modal
   const [searchInSeance, setSearchInSeance] = useState(""); // 🔍 Recherche dans séance
   const today = new Date().toISOString().split("T")[0];
+  const [startExport, setStartExport] = useState("");
+  const [endExport, setEndExport] = useState("");
+
 
   // 🔁 Masquer le message après 3 secondes
   useEffect(() => {
@@ -233,6 +236,46 @@ export default function CoachAbsences() {
 
       {loading && <Spinner animation="border" />}
       {message && <Alert>{message}</Alert>}
+
+{/* === Export global des absences === */}
+<div className="border rounded p-3 mb-4 bg-light">
+  <h5 className="mb-3 text-center">Exporter les absences sur une période</h5>
+  <div className="d-flex flex-wrap justify-content-center align-items-end gap-3">
+    <Form.Group>
+      <Form.Label>Début :</Form.Label>
+      <Form.Control
+        type="date"
+        max={today}
+        value={startExport}
+        onChange={(e) => setStartExport(e.target.value)}
+      />
+    </Form.Group>
+
+    <Form.Group>
+      <Form.Label>Fin :</Form.Label>
+      <Form.Control
+        type="date"
+        max={today}
+        value={endExport}
+        onChange={(e) => setEndExport(e.target.value)}
+      />
+    </Form.Group>
+
+    <Button
+      variant="outline-success"
+      disabled={!startExport || !endExport}
+      onClick={() => {
+        window.open(
+          `http://localhost:5000/api/coach/presences/export_periode?start=${startExport}&end=${endExport}`,
+          "_blank"
+        );
+      }}
+    >
+      Télécharger le CSV
+    </Button>
+  </div>
+</div>
+
 
       <Accordion alwaysOpen>
         {Object.keys(history)

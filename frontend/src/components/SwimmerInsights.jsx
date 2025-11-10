@@ -161,35 +161,7 @@ export default function SwimmerInsights({ insights }) {
         </Card.Body>
       </Card> */}
 
-      <Card className="shadow-sm border-0 rounded-3">
-  <Card.Header className="bg-primary text-white">
-     Évolution des performances
-  </Card.Header>
-  <Card.Body style={{ height: "300px" }}>
-    {trend?.by_year?.length ? (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={trend.by_year} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="year" />
-          <YAxis domain={["auto", "auto"]} />
-          <Tooltip formatter={(v) => `${v.toFixed(1)} pts`} />
-          <Line
-            type="monotone"
-            dataKey="avg_points"
-            stroke="#0d6efd"
-            strokeWidth={3}
-            dot={{ r: 5 }}
-            activeDot={{ r: 7 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    ) : (
-      <div className="text-muted text-center">
-        Pas encore assez de données pour afficher une courbe.
-      </div>
-    )}
-  </Card.Body>
-</Card>
+      
 
 <Card className="shadow-sm border-0 rounded-3">
   <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
@@ -201,56 +173,77 @@ export default function SwimmerInsights({ insights }) {
         onChange={(e) => setSelectedEvent(e.target.value)}
       >
         <option value="">Toutes les épreuves</option>
-        {Array.from(new Set(trend.over_time.map(d => d.epreuve))).map((ep, i) => (
-          <option key={i} value={ep}>{ep}</option>
+        {Array.from(new Set(trend.over_time.map((d) => d.epreuve))).map((ep, i) => (
+          <option key={i} value={ep}>
+            {ep}
+          </option>
         ))}
       </select>
     )}
   </Card.Header>
 
-  <Card.Body style={{ height: "350px" }}>
-    {trend?.over_time?.length ? (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={
-            [...trend.over_time]
-              .filter(d => !selectedEvent || d.epreuve === selectedEvent)
-              .sort((a, b) => a.date.localeCompare(b.date))
-          }
-          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip
-            formatter={(value, name, props) => {
-            const { payload } = props;
-              return [
-                `${value} pts — ${payload.temps}`,
-                 selectedEvent
-                ? `${payload.championnat}`
-                : `${payload.epreuve} | ${payload.championnat}`
-              ];
-            }}
-            labelFormatter={() => ""}
-          />
-          <Line
-            type="monotone"
-            dataKey="points"
-            stroke="#198754"
-            strokeWidth={2}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    ) : (
+  <Card.Body style={{ height: "420px" }}>
+    {trend?.over_time?.length ? (() => {
+      // 🔹 Filtrage dynamique des données selon l’épreuve choisie
+      const filteredData = selectedEvent
+        ? trend.over_time.filter((d) => d.epreuve === selectedEvent)
+        : trend.over_time;
+
+      // 🔹 Tri chronologique
+      const sorted = [...filteredData].sort((a, b) => a.date.localeCompare(b.date));
+
+      // 🔹 Regroupement (chaque ligne = une date)
+      const grouped = {};
+      sorted.forEach((d) => {
+        const key = d.date;
+        if (!grouped[key]) grouped[key] = { date: d.date };
+        grouped[key][d.epreuve] = d.points;
+      });
+
+      const chartData = Object.values(grouped);
+
+      // 🔹 Liste des épreuves à tracer
+      const epreuves = Array.from(new Set(filteredData.map((d) => d.epreuve)));
+
+      return (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis domain={["auto", "auto"]} />
+            <Tooltip
+              formatter={(value, name) => [`${value} pts`, name]}
+              labelFormatter={(label) => `Compétition : ${label}`}
+            />
+
+            {epreuves.map((epreuve, i) => {
+              const color = `hsl(${i * 55}, 80%, 50%)`;
+              return (
+                <Line
+                  key={epreuve}
+                  type="monotone"
+                  dataKey={epreuve}
+                  name={epreuve}
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                  isAnimationActive={false}
+                  connectNulls
+                />
+              );
+            })}
+          </LineChart>
+        </ResponsiveContainer>
+      );
+    })() : (
       <div className="text-muted text-center">
         Pas de données disponibles pour afficher la courbe.
       </div>
     )}
   </Card.Body>
 </Card>
+
 
       <Card className="shadow-sm border-0 rounded-3">
         <Card.Header className="bg-primary text-white">
