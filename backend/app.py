@@ -31,11 +31,10 @@ load_dotenv()
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = "18163b14564fa75026205a9471dc10713226087a170655109c0af14671597160"
     
 
     # Core config
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # "None" if using HTTPS cross-site
@@ -44,7 +43,16 @@ def create_app():
     
     # --- DB connection (NO .env, as requested) ---
     # Single main DB:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost:5432/NatationDB'
+    # DB depuis .env
+    DB_HOST = os.getenv("DB_HOST")
+    DB_PORT = os.getenv("DB_PORT")
+    DB_NAME = os.getenv("DB_NAME")
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
+        f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
