@@ -109,12 +109,28 @@ def parse_place_and_statut(s: str) -> tuple[int | None, str]:
 
 def detect_category(text: str) -> str | None:
     t = clean_text(text).upper()
+
+    # --- détecter toutes les formes de J/S ---
+    if re.search(r"\bJ\s*[/\-]?\s*S\b", t):
+        return "Juniors/Seniors"
+    
+    if "18 ET PLUS" in t:
+        return "Juniors/Seniors"
+    
     hits = [CAT_TOKENS[k] for k in CAT_TOKENS if re.search(rf"\b{k}\b", t)]
     if not hits:
         return None
     if "Juniors/Seniors" in hits:
         return "Juniors/Seniors"
     return hits[0]
+
+def contains_championnat(t: str) -> bool:
+    u = t.upper()
+    # tolère fautes communes : CHAMPIIONNAT, CHAMPIONAT, CHAMPIONNAT…
+    return (
+        "CHAMP" in u                # racine commune
+        and ("NAT" in u or "ION" in u)  # fin plausible
+    )
 
 # ==============
 # ensure* (DB)
@@ -280,13 +296,13 @@ def derive_saison_from_dates(d1, d2) -> str:
 def parse_header_info(soup: BeautifulSoup):
     for el in soup.find_all("p"):
         txt = clean_text(el.get_text())
-        if "CHAMPIONNAT" in txt.upper() and DATE_RX.search(txt):
+        if contains_championnat(txt) and DATE_RX.search(txt):
             m = DATE_RX.search(txt)
             d1 = datetime.strptime(m.group(1), "%d/%m/%Y").date()
             d2 = datetime.strptime(m.group(2), "%d/%m/%Y").date()
 
-            left = txt[:m.start()].strip(" -")
-            parts = [x.strip() for x in left.split("-") if x.strip()]
+            left = txt[:m.start()].strip(" -¤")
+            parts = [x.strip() for x in re.split(r"[-¤]", left) if x.strip()]
 
             nom_strict = clean_text(parts[0]) if parts else clean_text(left)
             lieu = clean_text(parts[1]) if len(parts) >= 2 else None
