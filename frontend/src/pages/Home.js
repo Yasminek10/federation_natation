@@ -13,7 +13,7 @@ function Home() {
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user"));
     setUser(savedUser);
-    console.log("Utilisateur connecté :", savedUser);
+    //console.log("Utilisateur connecté :", savedUser);
   }, []);
   const [lastChampionnat, setLastChampionnat] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -128,7 +128,7 @@ export default function OCRUploader({ user }) {
 
   const handleValidate = () => {
     setValidated(true);
-    console.log("Données validées :", rows);
+    //console.log("Données validées :", rows);
   };
 
   return (

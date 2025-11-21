@@ -84,7 +84,7 @@ export default function ClubAnalyses() {
   const navigate = useNavigate();
   const pdfRef = useRef();
   const { public_id } = useParams();
-  console.log("public_id:", public_id);
+  //console.log("public_id:", public_id);
 
   const [data, setData] = useState({
     relais_or: [],

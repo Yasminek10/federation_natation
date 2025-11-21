@@ -18,12 +18,12 @@ export default function SwimmersList() {
   //const { clubId } = useParams();
 
 useEffect(() => {
-  console.log("public_id reçu du router:", public_id);
+  //console.log("public_id reçu du router:", public_id);
   if (!public_id) return;
 
   fetch(`http://localhost:5000/api/clubs/${public_id}/nageurs`)
     .then((res) => {
-      console.log("URL appelée:", res.url);
+      //console.log("URL appelée:", res.url);
       return res.json();
     })
     .then((data) => setSwimmers(data))
