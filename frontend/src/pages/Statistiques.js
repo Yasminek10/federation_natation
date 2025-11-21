@@ -6,7 +6,6 @@ import {
   Spinner,
   Row,
   Col,
-  Badge,
   Stack,
   Button,
 } from "react-bootstrap";
@@ -29,24 +28,37 @@ import Navbar_Home from "../components/Navbar_Home";
 import ClassementChampionnat from "../components/CumulPerChampion";
 import "bootstrap/dist/css/bootstrap.min.css";
 import ButtonBack from "../components/ButtonBack";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import "../styles/Statistiques.css";
+
+
+// Palette “Dashboard Pro”
 const COLORS = {
-  dames: "#e83e8c",
-  messieurs: "#0d6efd",
-  "NAGE LIBRE": "#0d6efd",
-  DOS: "#20c997",
-  PAPILLON: "#ff5722",
-  BRASSE: "#ffc107",
-  "4 NAGES": "#6f42c1",
-  others: "#cccccc",
+  dames: "#E91E63",
+  messieurs: "#2196F3",
+  nageLibre: "#1976D2",
+  dos: "#26C6DA",
+  brasse: "#FFB300",
+  papillon: "#EF5350",
+  medley: "#7E57C2",
+  autres: "#BDBDBD",
+};
+
+// Map nage -> couleur
+const getNageColor = (nage) => {
+  const key = (nage || "").toUpperCase();
+  if (key.includes("LIBRE")) return COLORS.nageLibre;
+  if (key.includes("DOS")) return COLORS.dos;
+  if (key.includes("BRASSE")) return COLORS.brasse;
+  if (key.includes("PAPILLON")) return COLORS.papillon;
+  if (key.includes("4 NAGES") || key.includes("MEDLEY")) return COLORS.medley;
+  return COLORS.autres;
 };
 
 const formatNumber = (n) =>
   typeof n === "number" ? n.toLocaleString("fr-FR") : n ?? "-";
 
+// Garde topN entrées, regroupe le reste en “Autres”
 const aggregateTopN = (arr, valueKey = "value", topN = 8) => {
-  // arr: [{name, value, nage}]
   const sorted = [...arr].sort(
     (a, b) => (b[valueKey] || 0) - (a[valueKey] || 0)
   );
@@ -58,6 +70,7 @@ const aggregateTopN = (arr, valueKey = "value", topN = 8) => {
   return top;
 };
 
+// Tooltip custom uniforme pour tous les graphes
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -65,13 +78,19 @@ function CustomTooltip({ active, payload, label }) {
       className="p-2"
       style={{
         background: "white",
-        border: "1px solid #eee",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+        borderRadius: 8,
+        border: "1px solid #e0e0e0",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+        fontSize: 12,
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+      {label && (
+        <div style={{ fontWeight: 600, marginBottom: 6, color: "#374151" }}>
+          {label}
+        </div>
+      )}
       {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color }}>
+        <div key={i} style={{ color: p.color, marginBottom: 2 }}>
           {p.name}: <strong>{formatNumber(p.value)}</strong>
         </div>
       ))}
@@ -85,12 +104,9 @@ export default function Statistiques({ user }) {
   const [championnat, setChampionnat] = useState(null);
   const [loading, setLoading] = useState(true);
   const pageRef = useRef();
-  // 🧾 Fonction de téléchargement PDF
 
   const handleDownloadPDF = async () => {
-    const res = await fetch(
-      `http://localhost:5000/api/pdf/report/${champId}`
-    );
+    const res = await fetch(`http://localhost:5000/api/pdf/report/${champId}`);
 
     if (!res.ok) {
       alert("Erreur lors de la génération du PDF");
@@ -100,7 +116,7 @@ export default function Statistiques({ user }) {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Statistiques_${championnat.nom}.pdf`;
+    link.download = `Statistiques_${championnat?.nom || "championnat"}.pdf`;
     link.click();
     window.URL.revokeObjectURL(url);
   };
@@ -134,7 +150,9 @@ export default function Statistiques({ user }) {
       .finally(() => setLoading(false));
   }, [champId]);
 
-  // derived data
+  // ====== Données dérivées ======
+
+  // Points cumulés par club (toutes catégories)
   const totalPointsParClub = useMemo(() => {
     const tot = {};
     if (!championnat?.categories) return tot;
@@ -155,13 +173,12 @@ export default function Statistiques({ user }) {
   const top10Clubs = topClubs
     .slice(0, 10)
     .map((c) => ({ club: c.club, points: c.points }))
-    .reverse(); // reverse for vertical chart (largest at top)
+    .reverse();
 
   const totalClubs = Object.keys(totalPointsParClub).length;
-
   const topClub = topClubs[0] || { club: "-", points: 0 };
 
-  // pie data and aggregation
+  // Données pour les donuts
   const pieDames = stats.map((s) => ({
     name: s.label,
     value: s.dames || 0,
@@ -176,7 +193,7 @@ export default function Statistiques({ user }) {
   const pieDamesTop = aggregateTopN(pieDames, "value", 7);
   const pieMessieursTop = aggregateTopN(pieMessieurs, "value", 7);
 
-  // stacked bar (by label) - keep only labels with any value
+  // Stacked bar Dames / Messieurs par épreuve
   const stackedData = stats
     .map((s) => ({
       label: s.label,
@@ -185,7 +202,7 @@ export default function Statistiques({ user }) {
     }))
     .filter((r) => r.dames || r.messieurs);
 
-  // grouped by nage charts
+  // Groupé par nage
   const groupedByNage = useMemo(() => {
     const map = {};
     stats.forEach((s) => {
@@ -198,6 +215,8 @@ export default function Statistiques({ user }) {
     });
     return map;
   }, [stats]);
+
+  // ====== Rendu ======
 
   if (loading) {
     return (
@@ -216,7 +235,7 @@ export default function Statistiques({ user }) {
   }
 
   return (
-    <div>
+    <div style={{ background: "#f5f7fb", minHeight: "100vh" }}>
       <Navbar_Home user={user} />
       <Container
         ref={pageRef}
@@ -224,262 +243,85 @@ export default function Statistiques({ user }) {
         className="py-4 px-md-5"
         style={{ maxWidth: "1400px" }}
       >
-        {/* header */}
-
-        <Card className="shadow-lg border-0 rounded-4 mb-4 p-3">
+        {/* ====== HEADER ====== */}
+        <Card className="shadow-sm border-0 rounded-4 mb-4">
           <Card.Body className="d-md-flex align-items-center justify-content-between">
             <div>
-              <h2 className="fw-bold text-primary mb-1">
+              <h2 className="fw-bold mb-1" style={{ color: "#1F2937" }}>
                 🏆 {championnat.championnat}
               </h2>
-              <div className="text-muted small">
+              <div className="text-muted small mt-2">
                 <span className="me-3">
-                  Saison: <strong>{championnat.saison}</strong>
+                  Saison : <strong>{championnat.saison}</strong>
                 </span>
                 <span className="me-3">
-                  Début: <strong>{championnat.datedeb}</strong>
+                  Début : <strong>{championnat.datedeb}</strong>
                 </span>
                 <span>
-                  Fin: <strong>{championnat.datefin}</strong>
+                  Fin : <strong>{championnat.datefin}</strong>
                 </span>
               </div>
             </div>
 
-            {/* Right side: KPIs + Back Button */}
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-3 mt-3 mt-md-0">
               <Stack direction="horizontal" gap={3}>
-                <Card className="p-2 text-center" style={{ minWidth: 140 }}>
-                  <div className="text-muted small">Clubs</div>
-                  <div className="fs-4 fw-bold">{totalClubs}</div>
+                <Card
+                  className="px-3 py-2 text-center border-0"
+                  style={{
+                    minWidth: 140,
+                    background:
+                      "linear-gradient(135deg, #EEF2FF 0%, #E0F2FE 100%)",
+                  }}
+                >
+                  <div className="text-muted small">Nombre de clubs</div>
+                  <div
+                    className="fs-4 fw-bold"
+                    style={{ color: "#1D4ED8" }}
+                  >
+                    {totalClubs}
+                  </div>
                 </Card>
 
-                <Card className="p-2 text-center" style={{ minWidth: 220 }}>
-                  <div className="text-muted small">Leader</div>
-                  <div className="fs-6 fw-bold">{topClub.club}</div>
-                  <div className="small text-success">
+                <Card
+                  className="px-3 py-2 text-center border-0"
+                  style={{
+                    minWidth: 220,
+                    background:
+                      "linear-gradient(135deg, #ECFDF3 0%, #DCFCE7 100%)",
+                  }}
+                >
+                  <div className="text-muted small">Club leader</div>
+                  <div className="fw-bold" style={{ color: "#166534" }}>
+                    {topClub.club}
+                  </div>
+                  <div className="small" style={{ color: "#16A34A" }}>
                     {formatNumber(topClub.points)} pts
                   </div>
                 </Card>
               </Stack>
-              <Button variant="outline-danger" onClick={handleDownloadPDF}>
+
+              <Button
+                variant="outline-primary"
+                onClick={handleDownloadPDF}
+                className="ms-2"
+              >
                 📥 Télécharger PDF
               </Button>
-              {/* Button on the right */}
-              <ButtonBack style={{ minWidth: 140 }} />
+              <ButtonBack className="ms-1" style={{ minWidth: 120 }} />
             </div>
           </Card.Body>
         </Card>
 
+        {/* Classement tableau complet */}
         <ClassementChampionnat champId={champId} />
-
-        {/* top clubs + stacked bars */}
-
-        <Row className="g-4 mb-4">
-          <Col lg={4}>
-            <Card className="shadow-sm h-100 stat-card">
-              <Card.Body>
-                <h5 className="fw-bold text-primary mb-3">
-                  Top clubs (points)
-                </h5>
-                {top10Clubs.length === 0 ? (
-                  <div className="text-center text-muted">Aucun club</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={360}>
-                    <BarChart
-                      layout="vertical"
-                      data={top10Clubs}
-                      margin={{ right: 10 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tick={{ fontSize: 12 }} />
-                      <YAxis
-                        type="category"
-                        dataKey="club"
-                        width={100}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <Tooltip formatter={(v) => formatNumber(v)} />
-                      <Bar
-                        dataKey="points"
-                        fill="#0d6efd"
-                        barSize={20}
-                        radius={[5, 5, 5, 5]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card.Body>
-            </Card>
-          </Col>
-
-          <Col lg={7}>
-            <Card className="shadow-sm h-100 stat-card">
-              <Card.Body>
-                <h5 className="fw-bold text-primary mb-3">
-                  Cumul par épreuve (Dames / Messieurs)
-                </h5>
-                {stackedData.length === 0 ? (
-                  <div className="text-center text-muted">Aucune donnée</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={360}>
-                    <BarChart
-                      data={stackedData}
-                      margin={{ left: 10, right: 10 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 12 }}
-                        interval={0}
-                        angle={-30}
-                        textAnchor="end"
-                        height={70}
-                      />
-                      <YAxis />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Bar
-                        dataKey="dames"
-                        stackId="a"
-                        fill={COLORS.dames}
-                        name="Dames"
-                      />
-                      <Bar
-                        dataKey="messieurs"
-                        stackId="a"
-                        fill={COLORS.messieurs}
-                        name="Messieurs"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Donuts côte-à-côte */}
-        <Row className="g-4 mb-4">
-          <Col md={5}>
-            <Card className="shadow-sm h-100 stat-card">
-              <Card.Body>
-                <h5 className="fw-bold text-primary mb-3">
-                  Répartition - Dames
-                </h5>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={pieDamesTop}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      label={({ name, percent }) =>
-                        `${name} (${(percent * 100).toFixed(0)}%)`
-                      }
-                      paddingAngle={3}
-                    >
-                      {pieDamesTop.map((entry, idx) => (
-                        <Cell
-                          key={`d-${idx}`}
-                          fill={
-                            COLORS[entry.nage?.toUpperCase()] || COLORS.others
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => formatNumber(v)} />
-                    <Legend
-                      layout="vertical"
-                      verticalAlign="middle"
-                      align="right"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card.Body>
-            </Card>
-          </Col>
-
-          <Col md={6}>
-            <Card className="shadow-sm h-100 stat-card">
-              <Card.Body>
-                <h5 className="fw-bold text-primary mb-3">
-                  Répartition - Messieurs
-                </h5>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={pieMessieursTop}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      label={({ name, percent }) =>
-                        `${name} (${(percent * 100).toFixed(0)}%)`
-                      }
-                      paddingAngle={3}
-                    >
-                      {pieMessieursTop.map((entry, idx) => (
-                        <Cell
-                          key={`m-${idx}`}
-                          fill={
-                            COLORS[entry.nage?.toUpperCase()] || COLORS.others
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => formatNumber(v)} />
-                    <Legend
-                      layout="vertical"
-                      verticalAlign="middle"
-                      align="right"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* charts par type de nage */}
-        <Row className="g-4 mb-5">
-          {Object.entries(groupedByNage).map(([nage, data], idx) => (
-            <Col xs={12} sm={6} lg={4} key={idx}>
-              <Card className="shadow-sm h-100 stat-card">
-                <Card.Body>
-                  <h6 className="fw-bold text-primary mb-3 text-center">
-                    Cumul — {nage}
-                  </h6>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="distance" />
-                      <YAxis />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend />
-                      <Bar dataKey="dames" fill={COLORS.dames} name="Dames" />
-                      <Bar
-                        dataKey="messieurs"
-                        fill={COLORS.messieurs}
-                        name="Messieurs"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-
-        {/* tableau récapitulatif basique */}
-        <Card className="shadow-sm mb-5">
+        
+        {/* ====== TABLEAU RÉCAP ====== */}
+        <Card className="shadow-sm mb-5 border-0">
           <Card.Body>
-            <h5 className="fw-bold text-primary mb-3">Tableau récapitulatif</h5>
-            <Table striped bordered hover responsive>
+            <h5 className="fw-bold mb-3" style={{ color: "#111827" }}>
+              Tableau récapitulatif des épreuves
+            </h5>
+            <Table hover responsive size="sm" className="align-middle">
               <thead className="table-light">
                 <tr>
                   <th>Distance</th>
@@ -509,6 +351,225 @@ export default function Statistiques({ user }) {
             </Table>
           </Card.Body>
         </Card>
+
+        {/* ====== TOP CLUBS + STACKED BAR ====== */}
+        <div className="dashboard-grid">
+          <div className="dashboard-card">
+            <Card className="shadow-sm h-100 border-0">
+              <Card.Body>
+                <h5 className="fw-bold mb-3" style={{ color: "#111827" }}>
+                  Top clubs (points)
+                </h5>
+                {top10Clubs.length === 0 ? (
+                  <div className="text-center text-muted">Aucun club</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                      layout="vertical"
+                      data={top10Clubs}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="club"
+                        width={120}
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar
+                        dataKey="points"
+                        fill={COLORS.messieurs}
+                        barSize={18}
+                        radius={[6, 6, 6, 6]}
+                        name="Points"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
+          <div className="dashboard-card">
+            <Card className="shadow-sm h-100 border-0">
+              <Card.Body>
+                <h5 className="fw-bold mb-3" style={{ color: "#111827" }}>
+                  Cumul par épreuve (Dames / Messieurs)
+                </h5>
+                {stackedData.length === 0 ? (
+                  <div className="text-center text-muted">Aucune donnée</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                      data={stackedData}
+                      margin={{ top: 10, left: 0, right: 20, bottom: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11 }}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={70}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar
+                        dataKey="dames"
+                        stackId="a"
+                        fill={COLORS.dames}
+                        name="Dames"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="messieurs"
+                        stackId="a"
+                        fill={COLORS.messieurs}
+                        name="Messieurs"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
+        </div>
+        {/* ====== DONUTS Dames / Messieurs ====== */}
+        <div className="dashboard-grid">
+          <div className="dashboard-card">
+            <Card className="shadow-sm h-100 border-0">
+              <Card.Body>
+                <h5 className="fw-bold mb-3" style={{ color: "#111827" }}>
+                  Répartition des points – Dames
+                </h5>
+                {pieDamesTop.every((d) => !d.value) ? (
+                  <div className="text-center text-muted">
+                    Aucune donnée pour les Dames
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={pieDamesTop}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="45%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        stroke="#FFFFFF"
+                        strokeWidth={2}
+                        label={({ name, percent }) =>
+                          `${(percent * 100).toFixed(0)}%`
+                        }
+                      >
+                        {pieDamesTop.map((entry, idx) => (
+                          <Cell
+                            key={`d-${idx}`}
+                            fill={getNageColor(entry.nage)}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{ fontSize: 11 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
+          <div className="dashboard-card">
+            <Card className="shadow-sm h-100 border-0">
+              <Card.Body>
+                <h5 className="fw-bold mb-3" style={{ color: "#111827" }}>
+                  Répartition des points – Messieurs
+                </h5>
+                {pieMessieursTop.every((d) => !d.value) ? (
+                  <div className="text-center text-muted">
+                    Aucune donnée pour les Messieurs
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={pieMessieursTop}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="45%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        stroke="#FFFFFF"
+                        strokeWidth={2}
+                        label={({ name, percent }) =>
+                          `${(percent * 100).toFixed(0)}%`
+                        }
+                      >
+                        {pieMessieursTop.map((entry, idx) => (
+                          <Cell
+                            key={`m-${idx}`}
+                            fill={getNageColor(entry.nage)}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{ fontSize: 11 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
+        </div>
+        <div className="dashboard-grid">
+  {Object.entries(groupedByNage).map(([nage, data], idx) => (
+    <div className="dashboard-card" key={idx}>
+      <Card className="shadow-sm h-100 border-0">
+        <Card.Body>
+          <h6 className="fw-bold mb-3 text-center" style={{ color: "#111827" }}>
+            Cumul par distance — {nage}
+          </h6>
+
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart data={data} margin={{ top: 10, right: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="distance" tick={{ fontSize: 11 }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+
+              <Bar dataKey="dames" fill={COLORS.dames} barSize={14} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="messieurs" fill={COLORS.messieurs} barSize={14} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card.Body>
+      </Card>
+    </div>
+  ))}
+</div>
+
+        
       </Container>
     </div>
   );

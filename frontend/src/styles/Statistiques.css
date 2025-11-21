@@ -23,3 +23,18 @@
     width: 100% !important;
   }
 }
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 25px;
+  margin-bottom: 40px;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  min-width: 380px;             /* <-- ESSENTIEL */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
