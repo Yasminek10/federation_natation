@@ -11,7 +11,7 @@ from db import (
     db,
     Club, Nageur, Categorie, Epreuve, Championnat, CEC,
     Equipe, EquipeMembre,
-    ResultatBase, ResultatIndividuel, ResultatRelais, 
+    ResultatBase, ResultatIndividuel, ResultatRelais,
 )
 
 ingest_bp = Blueprint("ingest", __name__, url_prefix="/api")
@@ -32,7 +32,7 @@ NAGE_MAP = {
 CAT_TOKENS = {
     "POUSSIN": "Poussin", "POUSSINS": "Poussin",
     "MINIME": "Minimes", "MINIMES": "Minimes",
-    "BENJAMIN": "Benjamins", "BENJAMINS": "Benjamins", "BENJAMENS": "Benjamins",  # ⬅️
+    "BENJAMIN": "Benjamins", "BENJAMINS": "Benjamins", "BENJAMENS": "Benjamins",
     "CADET": "Cadets", "CADETS": "Cadets",
     "JUNIOR": "Juniors/Seniors", "JUNIORS": "Juniors/Seniors",
     "SENIOR": "Juniors/Seniors", "SENIORS": "Juniors/Seniors",
@@ -41,7 +41,13 @@ CAT_TOKENS = {
 }
 
 DEFAULT_CAT = "TC"
+
 # --- Eligible points / identité nageur ------------------------
+
+def clean_text(s: str) -> str:
+    if s is None:
+        return ""
+    return " ".join(s.replace(NBSP, " ").replace("\r", " ").replace("\n", " ").split()).strip()
 
 def norm_nat(n: str | None) -> str:
     return (clean_text(n).upper() if n else "")
@@ -51,7 +57,7 @@ def is_tunisian(n: str | None) -> bool:
     return t in {"TUN", "TUNISIE", "TN", "TUN."}
 
 def swimmer_key(fullname: str, birth_txt: str | None, club_name: str) -> str:
-    nom, prenom = _split_name(fullname)   # défini plus bas
+    nom, prenom = _split_name(fullname)
     by = clean_text(birth_txt) or "-"
     club = clean_text(club_name)
     return f"{nom.upper()}|{prenom.upper()}|{club.upper()}|{by}"
@@ -69,11 +75,6 @@ def compute_eligible_from_preview(nation: str | None, approvals: dict, key: str)
         return bool(approvals[key])
     return None
 
-def clean_text(s: str) -> str:
-    if s is None:
-        return ""
-    return " ".join(s.replace(NBSP, " ").replace("\r", " ").replace("\n", " ").split()).strip()
-
 def guess_bassin(label: str) -> int | None:
     t = clean_text(label).lower()
     if "grand bassin" in t or "50" in t:
@@ -83,7 +84,6 @@ def guess_bassin(label: str) -> int | None:
     return None
 
 def compute_saison(date_deb) -> str:
-    # saison Sept->Août
     y = date_deb.year
     return f"{y}/{y+1}" if date_deb.month >= 9 else f"{y-1}/{y}"
 
@@ -110,13 +110,12 @@ def parse_place_and_statut(s: str) -> tuple[int | None, str]:
 def detect_category(text: str) -> str | None:
     t = clean_text(text).upper()
 
-    # --- détecter toutes les formes de J/S ---
     if re.search(r"\bJ\s*[/\-]?\s*S\b", t):
         return "Juniors/Seniors"
-    
+
     if "18 ET PLUS" in t:
         return "Juniors/Seniors"
-    
+
     hits = [CAT_TOKENS[k] for k in CAT_TOKENS if re.search(rf"\b{k}\b", t)]
     if not hits:
         return None
@@ -126,11 +125,7 @@ def detect_category(text: str) -> str | None:
 
 def contains_championnat(t: str) -> bool:
     u = t.upper()
-    # tolère fautes communes : CHAMPIIONNAT, CHAMPIONAT, CHAMPIONNAT…
-    return (
-        "CHAMP" in u                # racine commune
-        and ("NAT" in u or "ION" in u)  # fin plausible
-    )
+    return ("CHAMP" in u and ("NAT" in u or "ION" in u))
 
 # ==============
 # ensure* (DB)
@@ -152,14 +147,12 @@ def ensure_nageur(fullname: str, year_txt: str | None, club: Club, nation: str |
     if club is None:
         raise ValueError("club_obligatoire")
 
-    full = clean_text(fullname)
     nom, prenom = _split_name(fullname)
     nom = clean_text(nom)
     prenom = clean_text(prenom)
 
     by = int(year_txt) if (year_txt and year_txt.isdigit()) else None
 
-    #lookup insensible à la casse pour respecter la contrainte upper(...)
     q = Nageur.query.filter(
         Nageur.id_club == club.id_club,
         func.upper(Nageur.nom) == nom.upper(),
@@ -241,12 +234,12 @@ def ensure_equipe(cec_id: int, club_id: int) -> Equipe:
 # ==============================
 
 EVENT_RX = re.compile(
-    r"""^(?:(?P<legs>\d+)\s*[x×X]\s*)?      # 4 x  (optionnel, accepte ×)
-         (?P<dist>\d+)\s*m?\s*              # '50 m' ou '50'
+    r"""^(?:(?P<legs>\d+)\s*[x×X]\s*)?
+         (?P<dist>\d+)\s*m?\s*
          (?P<nage>(?:NAGE\s*LIBRE|NL|DOS|BRASSE|BR|PAPILLON|PAP|4\s*NAGES))
-         (?:\s*m)?\s+                       # parfois un 'm' errant après le style
-         (?P<genre>Dames?|Messieurs?|Hommes|Mixte)   # tolérant
-         (?:\s+.*)?$                        # ex: 'Classement', 'Finale', etc.
+         (?:\s*m)?\s+
+         (?P<genre>Dames?|Messieurs?|Hommes|Mixte)
+         (?:\s+.*)?$
     """,
     re.IGNORECASE | re.VERBOSE
 )
@@ -257,11 +250,6 @@ TC_RX = re.compile(
 )
 
 def default_category_from_title(title: str) -> str | None:
-    """
-    - Si 'TC' (ou 'TOUTES CATEGORIE(S)') est présent dans le titre -> 'TC'
-    - Sinon, si exactement UNE seule catégorie explicite (Benjamins, Minimes, …) -> celle-ci
-    - Sinon -> None (et on retombera plus loin sur DEFAULT_CAT = 'TC')
-    """
     t = clean_text(title)
     u = t.upper()
 
@@ -275,7 +263,6 @@ def default_category_from_title(title: str) -> str | None:
         return hits_non_tc[0]
     return None
 
-
 def derive_saison_from_name(nom: str) -> str | None:
     t = clean_text(nom).upper()
     if "ÉTÉ" in t or "ETE" in t:
@@ -285,12 +272,7 @@ def derive_saison_from_name(nom: str) -> str | None:
     return None
 
 def derive_saison_from_dates(d1, d2) -> str:
-    """
-    Heuristique simple:
-      - ETE  : compétitions dont la date de début est entre mai et septembre inclus
-      - HIVER: sinon
-    """
-    m = (d1 or d2).month  # d1 existe déjà dans nos parseurs
+    m = (d1 or d2).month
     return "ETE" if 5 <= m <= 9 else "HIVER"
 
 def parse_header_info(soup: BeautifulSoup):
@@ -309,8 +291,6 @@ def parse_header_info(soup: BeautifulSoup):
             bassin = guess_bassin(parts[2]) if len(parts) >= 3 else None
 
             saison = derive_saison_from_name(nom_strict) or derive_saison_from_dates(d1, d2)
-
-            # ⬇️ utilise tout 'left' pour ne pas rater "M/C J/S TC" après un tiret
             default_cat = default_category_from_title(left)
 
             return {
@@ -334,7 +314,6 @@ def parse_event_heading(soup: BeautifulSoup):
         dist = int(m.group("dist"))
         nage = norm_nage(m.group("nage"))
         genre_raw = m.group("genre").strip().capitalize()
-        # normalise le genre
         genre = "Messieurs" if genre_raw in {"Messieurs", "Hommes"} else ("Dames" if genre_raw.startswith("Dame") else "Mixte")
         if legs:
             return {"is_relay": True, "legs_count": int(legs), "distance": dist, "nage": nage, "genre": genre, "raw": t}
@@ -342,7 +321,6 @@ def parse_event_heading(soup: BeautifulSoup):
     return None
 
 def _parse_event_text(txt: str):
-    """Retourne un dict ev{} à partir d'une ligne titre, sinon None."""
     t = clean_text(txt)
     m = EVENT_RX.search(t)
     if not m:
@@ -356,11 +334,10 @@ def _parse_event_text(txt: str):
         return {"is_relay": True, "legs_count": int(legs), "distance": dist, "nage": nage, "genre": genre, "raw": t}
     return {"is_relay": False, "legs_count": None, "distance": dist, "nage": nage, "genre": genre, "raw": t}
 
-
 def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = None):
     events = []
     curr_event, curr_cat = None, None
-    fallback_cat = default_cat or DEFAULT_CAT   # <— use page default if provided
+    fallback_cat = default_cat or DEFAULT_CAT
 
     for node in soup.body.descendants:
         name = getattr(node, "name", None)
@@ -381,11 +358,10 @@ def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = No
             headers = [clean_text(td.get_text()) for td in node.find_all("td")]
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
                 if curr_event is not None:
-                    cat_label = curr_cat or fallback_cat   # <— here
+                    cat_label = curr_cat or fallback_cat
                     curr_event["sections"].append((cat_label, node))
 
     return [e for e in events if e["sections"]]
-
 
 def iter_category_tables(soup: BeautifulSoup, default_cat: str | None = None):
     curr_cat = None
@@ -398,7 +374,7 @@ def iter_category_tables(soup: BeautifulSoup, default_cat: str | None = None):
         if getattr(node, "name", None) == "table":
             headers = [clean_text(td.get_text()) for td in node.find_all("td")]
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
-                yield (curr_cat or fallback_cat), node   
+                yield (curr_cat or fallback_cat), node
 
 # --- entêtes robustes ---
 
@@ -413,12 +389,7 @@ HEADER_KEYS = {
     "temps de passage": "passages",
 }
 
-
 def header_map_from_table(table) -> tuple[dict[str, int], int]:
-    """
-    Analyse les 1–3 premières lignes pour trouver la vraie ligne d'entête.
-    Retourne (mapping, header_row_index).
-    """
     rows = table.find_all("tr")
     header_idx = 0
     header_cells = None
@@ -426,7 +397,6 @@ def header_map_from_table(table) -> tuple[dict[str, int], int]:
     scan_upto = min(3, len(rows))
     for i in range(scan_upto):
         cells = [clean_text(td.get_text(" ", strip=True)).lower() for td in rows[i].find_all("td")]
-        # Heuristique: une ligne d'entête contient au moins 'nom' et 'club' (ou 'temps' etc.)
         if any("nom" in c for c in cells) and (any("club" in c for c in cells) or any("temps" in c for c in cells)):
             header_idx = i
             header_cells = cells
@@ -449,7 +419,6 @@ def header_map_from_table(table) -> tuple[dict[str, int], int]:
 # ============
 
 def extract_cumulative_passages(cell_text: str) -> list[str]:
-    # '29.83 (50 m) - 1:02.42 (100 m) - ...' -> ['29.83','1:02.42', ...]
     t = clean_text(cell_text)
     out = []
     for chunk in t.split("-"):
@@ -479,11 +448,7 @@ def seconds_to_str(x: float) -> str:
     s = x - 60 * m
     return f"{m}:{s:05.2f}" if m else f"{s:.2f}"
 
-
-
-
 def parse_relay_groups(table, legs_count: int):
-    """Regroupe les lignes en équipes (place -> recap + 3/9 lignes membres)."""
     rows = table.find_all("tr")
     teams, cur = [], None
     for r in rows[1:]:
@@ -516,55 +481,40 @@ def parse_relay_groups(table, legs_count: int):
 
     if cur and cur["members"]:
         teams.append(cur)
-    # garde uniquement les équipes complètes
     return [t for t in teams if len(t["members"]) == legs_count]
 
-
-
-
-# --- Remplace entièrement cette fonction ---
 def compute_leg_50_splits_for_store(
     legs_count: int,
     dist_per_leg: int,
     cumul_list: list[str],
     total_time: str | None
 ) -> list[str]:
-    """
-    Retourne ["p50[/p50b]", ...] (longueur = legs_count).
-    Règles :
-      - Segments standards = différence de passages adjacents si présents et croissants.
-      - 4e relayeur : 2e 50 = total - (dernier passage < total).
-      - On ne dérive jamais d'autres segments à partir du total.
-    """
     if not legs_count or not dist_per_leg:
         return []
 
-    per50 = max(1, dist_per_leg // 50)             # 100 -> 2
-    sec = [time_to_seconds(x) for x in cumul_list]  # [50,100,150,...]
+    per50 = max(1, dist_per_leg // 50)
+    sec = [time_to_seconds(x) for x in cumul_list]
     tot = time_to_seconds(total_time or "")
 
     def fmt(x):
         return seconds_to_str(x) if x is not None else ""
 
     out = []
-    for j in range(legs_count):                     # 0..3
-        start_idx = j * per50                       # 0,2,4,6 pour 4x100
+    for j in range(legs_count):
+        start_idx = j * per50
         segs = []
         prev = 0.0 if start_idx == 0 else (sec[start_idx - 1] if start_idx - 1 < len(sec) else None)
 
-        for k in range(per50):                      # k=0 (50), k=1 (100)
-            cur_idx = start_idx + k                 # 0/1 ; 2/3 ; 4/5 ; 6/7(=absent)
+        for k in range(per50):
+            cur_idx = start_idx + k
             cur = sec[cur_idx] if cur_idx < len(sec) else None
 
-            # Cas général: différence si croissant strict
             if prev is not None and cur is not None and cur > prev:
                 segs.append(fmt(cur - prev))
                 prev = cur
                 continue
 
-            # Fallback UNIQUEMENT pour le DERNIER segment du DERNIER relayeur
             if j == legs_count - 1 and k == per50 - 1 and tot is not None:
-                # dernier passage valide strictement < total (350 de préférence)
                 last_valid = None
                 for x in sec:
                     if x is not None and x < tot and (last_valid is None or x > last_valid):
@@ -574,14 +524,108 @@ def compute_leg_50_splits_for_store(
                     prev = tot
                     continue
 
-            # sinon: segment inconnu
             segs.append("")
             prev = cur
 
         out.append("/".join(segs))
     return out
 
+# =======================================
+# UPSERT helpers (NEW)
+# =======================================
 
+def diff_base_fields(base: ResultatBase, *, points, place, temps, statut) -> dict:
+    changes = {}
+    if (base.points or 0) != (points or 0): changes["points"] = (base.points, points)
+    if base.place != place: changes["place"] = (base.place, place)
+    if (base.temps or None) != (temps or None): changes["temps"] = (base.temps, temps)
+    if (base.statut or "OK") != (statut or "OK"): changes["statut"] = (base.statut, statut)
+    return changes
+
+def upsert_individual_result(*, cec_id: int, nageur_id: int, points: int, place: int | None, temps: str | None, statut: str):
+    """
+    Unicité logique: (cec_id, nageur_id)
+    """
+    base = (
+        db.session.query(ResultatBase)
+        .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+        .filter(ResultatBase.cec_id == cec_id, ResultatIndividuel.id_nageur == nageur_id)
+        .first()
+    )
+
+    if not base:
+        base = ResultatBase(cec_id=cec_id, points=points or 0, place=place, temps=temps, statut=statut)
+        db.session.add(base)
+        db.session.flush()
+        db.session.add(ResultatIndividuel(resultat_id=base.resultat_id, id_nageur=nageur_id))
+        return "inserted", base.resultat_id, {}
+
+    changes = diff_base_fields(base, points=points, place=place, temps=temps, statut=statut)
+    if not changes:
+        return "unchanged", base.resultat_id, {}
+
+    base.points = points or 0
+    base.place = place
+    base.temps = temps
+    base.statut = statut
+    return "updated", base.resultat_id, changes
+
+def upsert_relay_result(*, cec_id: int, equipe_id: int, points: int, place: int | None, temps: str | None, statut: str):
+    """
+    Unicité logique: (cec_id, equipe_id)
+    """
+    base = (
+        db.session.query(ResultatBase)
+        .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
+        .filter(ResultatBase.cec_id == cec_id, ResultatRelais.equipe_id == equipe_id)
+        .first()
+    )
+
+    if not base:
+        base = ResultatBase(cec_id=cec_id, points=points or 0, place=place, temps=temps, statut=statut)
+        db.session.add(base)
+        db.session.flush()
+        db.session.add(ResultatRelais(resultat_id=base.resultat_id, equipe_id=equipe_id))
+        return "inserted", base.resultat_id, {}
+
+    changes = diff_base_fields(base, points=points, place=place, temps=temps, statut=statut)
+    if not changes:
+        return "unchanged", base.resultat_id, {}
+
+    base.points = points or 0
+    base.place = place
+    base.temps = temps
+    base.statut = statut
+    return "updated", base.resultat_id, changes
+
+def upsert_relay_members(*, equipe_id: int, members: list[dict]):
+    """
+    members: [{nageur_id, leg_order, split_time}]
+    -> insert/update EquipeMembre
+    """
+    existing = {m.leg_order: m for m in EquipeMembre.query.filter_by(equipe_id=equipe_id).all()}
+    ins = upd = unch = 0
+
+    for m in members:
+        leg = m["leg_order"]
+        nageur_id = m["nageur_id"]
+        split_time = m.get("split_time") or None
+
+        em = existing.get(leg)
+        if not em:
+            db.session.add(EquipeMembre(equipe_id=equipe_id, nageur_id=nageur_id, leg_order=leg, split_time=split_time))
+            ins += 1
+            continue
+
+        if em.nageur_id == nageur_id and (em.split_time or None) == split_time:
+            unch += 1
+            continue
+
+        em.nageur_id = nageur_id
+        em.split_time = split_time
+        upd += 1
+
+    return ins, upd, unch
 
 # ==================
 # Endpoint principal
@@ -602,20 +646,20 @@ def compute_eligible_for_insert(nation: str | None, approvals: dict, key: str, e
         return bool(approvals[key])
     return False if existing_nageur is None else None
 
-
 @ingest_bp.post("/ingest")
 def ingest_url():
     """
     Importe TOUTES les épreuves présentes sur l'URL (multi-épreuves).
-    - Détecte le championnat, regroupe par épreuve/catégorie.
-    - Déduplication globale CEC.
-    - Insertion (individuel & relais).
-    - Applique eligible_points : TUN => True ; non-TUN => selon approvals ; sinon ne change pas (None).
+
+    ✅ Nouveau comportement:
+      - Autorise la réimportation du même championnat
+      - Upsert résultats:
+          inserted / updated / unchanged
+      - Met à jour si la source (FTN) a changé
     """
     data = request.get_json(silent=True) or {}
     url = clean_text(data.get("url", ""))
 
-    # (NEW) approvals issus du preview
     approvals = data.get("approvals", {})
     if not isinstance(approvals, dict):
         approvals = {}
@@ -632,7 +676,7 @@ def ingest_url():
 
     soup = BeautifulSoup(resp.text, "lxml")
 
-    # 1) Championnat
+    # 1) Championnat (ensure -> réutilise ou crée)
     meta = parse_header_info(soup)
     if not meta:
         return jsonify({"status": "error", "message": "En-tête championnat introuvable"}), 422
@@ -646,8 +690,8 @@ def ingest_url():
             return jsonify({"status": "error", "message": "Aucune épreuve détectée"}), 422
         ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup, default_cat=meta.get("default_category")))}]
 
-    # 3) Construire la liste de tout ce qu'on va insérer (CEC par épreuve×catégorie)
-    pending_items = []   # [{cec_id, table, ev}, ...]
+    # 3) Construire CEC (ensure) + items
+    pending_items = []
     cats_seen = []
 
     for grp in ev_groups:
@@ -663,16 +707,13 @@ def ingest_url():
     if not pending_items:
         return jsonify({"status": "error", "message": "Aucune table de résultats lisible"}), 422
 
-    # 4) Déduplication GLOBALE
-    already = []
-    for it in pending_items:
-        if db.session.query(ResultatBase.resultat_id).filter_by(cec_id=it["cec_id"]).first():
-            already.append(it["cec_id"])
-    if already:
-        return jsonify({"status": "error", "message": "Championnat déjà importé", "cec_ids": sorted(set(already))}), 409
+    # ✅ 4) PLUS DE BLOCAGE "Championnat déjà importé"
+    #    -> on fait des UPSERT ligne par ligne.
 
-    # 5) Insertion
     inserted = 0
+    updated = 0
+    unchanged = 0
+
     for it in pending_items:
         cec_id, table, ev = it["cec_id"], it["table"], it["ev"]
 
@@ -684,12 +725,14 @@ def ingest_url():
             for team in teams:
                 if not team.get("club"):
                     return jsonify({"status": "error", "message": f"Club manquant pour l'équipe (CEC {cec_id})."}), 422
+
                 club = ensure_club(team["club"])
                 eq = ensure_equipe(cec_id, club.id_club)
 
                 cumul = extract_cumulative_passages(team.get("passages", ""))
                 leg_50_splits = compute_leg_50_splits_for_store(legs, dist_per_leg, cumul, team.get("time", ""))
 
+                members_payload = []
                 for idx, mem in enumerate(team.get("members", []), start=1):
                     sw_key = swimmer_key(mem.get("fullname", ""), mem.get("year", ""), team.get("club", ""))
                     existing = _find_nageur(mem.get("fullname", ""), mem.get("year", ""), club)
@@ -697,25 +740,30 @@ def ingest_url():
                     nageur = ensure_nageur(mem.get("fullname", ""), mem.get("year", ""), club, mem.get("nation"), eligible_points=elig)
 
                     st = leg_50_splits[idx - 1] if (idx - 1) < len(leg_50_splits) else ""
-                    db.session.add(EquipeMembre(
-                        equipe_id=eq.equipe_id,
-                        nageur_id=nageur.id_nageur,
-                        leg_order=idx,
-                        split_time=st
-                    ))
+                    members_payload.append({
+                        "nageur_id": nageur.id_nageur,
+                        "leg_order": idx,
+                        "split_time": st
+                    })
+
+                # Upsert membres équipe
+                upsert_relay_members(equipe_id=eq.equipe_id, members=members_payload)
 
                 place, statut = parse_place_and_statut(team.get("place_txt", ""))
-                base = ResultatBase(
+                status, rid, changes = upsert_relay_result(
                     cec_id=cec_id,
+                    equipe_id=eq.equipe_id,
                     points=team.get("points", 0) or 0,
                     place=place,
                     temps=(team.get("time") or None),
                     statut=statut
                 )
-                db.session.add(base)
-                db.session.flush()
-                db.session.add(ResultatRelais(resultat_id=base.resultat_id, equipe_id=eq.equipe_id))
-                inserted += 1
+                if status == "inserted":
+                    inserted += 1
+                elif status == "updated":
+                    updated += 1
+                else:
+                    unchanged += 1
 
         else:
             rows = table.find_all("tr")
@@ -758,17 +806,25 @@ def ingest_url():
 
                 club = ensure_club(club_nom)
 
-                # (NEW) appliquer eligible_points via preview approvals
                 sw_key = swimmer_key(fullname, annee, club_nom)
                 existing = _find_nageur(fullname, annee, club)
-                elig = compute_eligible_for_insert(nation, approvals, sw_key, existing)  # True/False/None
+                elig = compute_eligible_for_insert(nation, approvals, sw_key, existing)
                 nageur = ensure_nageur(fullname, annee, club, nation, eligible_points=elig)
 
-                base = ResultatBase(cec_id=cec_id, points=points, place=place, temps=temps, statut=statut)
-                db.session.add(base)
-                db.session.flush()
-                db.session.add(ResultatIndividuel(resultat_id=base.resultat_id, id_nageur=nageur.id_nageur))
-                inserted += 1
+                status, rid, changes = upsert_individual_result(
+                    cec_id=cec_id,
+                    nageur_id=nageur.id_nageur,
+                    points=points,
+                    place=place,
+                    temps=temps,
+                    statut=statut
+                )
+                if status == "inserted":
+                    inserted += 1
+                elif status == "updated":
+                    updated += 1
+                else:
+                    unchanged += 1
 
     db.session.commit()
 
@@ -783,6 +839,8 @@ def ingest_url():
     return jsonify({
         "status": "success",
         "inserted": inserted,
+        "updated": updated,
+        "unchanged": unchanged,
         "championnat": {
             "id": champ.champ_id,
             "nom": champ.nom,
@@ -792,7 +850,6 @@ def ingest_url():
             "datedeb": str(champ.datedeb),
             "datefin": str(champ.datefin),
         },
-        "epreuve": (events_out[0] if events_out else None),
         "events": events_out,
         "categories": sorted(set(cats_seen)),
         "eligible_policy": {
@@ -802,7 +859,6 @@ def ingest_url():
         },
         "url": url,
     }), 201
-
 
 # =========================
 # Dry-run (prévisualisation)
@@ -822,10 +878,8 @@ def _split_name(fullname: str):
     if len(parts) == 1:
         return parts[0], ""
 
-    # Heuristique : run de mots en MAJUSCULES au début => nom de famille
     upper_run = []
     for tok in parts:
-        # garde le token si au moins une lettre et tout en majuscules (accents OK)
         if tok.upper() == tok and re.search(r"[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸ]", tok):
             upper_run.append(tok)
         else:
@@ -836,7 +890,6 @@ def _split_name(fullname: str):
         prenom = " ".join(parts[len(upper_run):])
         return nom, prenom
 
-    # Fallback : tout sauf le dernier = nom ; dernier = prénom
     return " ".join(parts[:-1]), parts[-1]
 
 def _find_nageur(fullname: str, year_txt: str | None, club: Club | None):
@@ -855,13 +908,30 @@ def _find_nageur(fullname: str, year_txt: str | None, club: Club | None):
     q = q.filter(Nageur.birth_year == by) if by is not None else q.filter(Nageur.birth_year.is_(None))
     return q.first()
 
+def _find_indiv_result(cec_id: int, nageur_id: int) -> ResultatBase | None:
+    return (
+        db.session.query(ResultatBase)
+        .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
+        .filter(ResultatBase.cec_id == cec_id, ResultatIndividuel.id_nageur == nageur_id)
+        .first()
+    )
+
+def _find_relay_result(cec_id: int, equipe_id: int) -> ResultatBase | None:
+    return (
+        db.session.query(ResultatBase)
+        .join(ResultatRelais, ResultatRelais.resultat_id == ResultatBase.resultat_id)
+        .filter(ResultatBase.cec_id == cec_id, ResultatRelais.equipe_id == equipe_id)
+        .first()
+    )
+
 @ingest_bp.post("/ingest/preview")
 def ingest_preview():
     """
     Dry-run multi-épreuves (pas d'écriture).
     Retourne:
-      - championnat, events, categories, conflicts_cec_ids
-      - swimmers_verification (liste unique, non-TUN à approuver) + swimmer_conflicts_keys
+      - championnat, events, categories
+      - delta_summary (NEW) : inserted / updated / unchanged estimés
+      - swimmers_verification + conflits nationalités
     """
     data = request.get_json(silent=True) or {}
     url = clean_text(data.get("url", ""))
@@ -892,11 +962,15 @@ def ingest_preview():
 
     events_preview = []
     cats_seen = []
-    conflicts = []
 
-    # Agrégateur de nageurs uniques
+    # Agrégateur nageurs uniques
     sw_seen: dict[str, dict] = {}
     conflict_keys: set[str] = set()
+
+    # Résumé upsert estimé (NEW)
+    delta_inserted = 0
+    delta_updated = 0
+    delta_unchanged = 0
 
     def push_swimmer(fullname, birth, club_nom, nation):
         key = swimmer_key(fullname, birth, club_nom)
@@ -933,6 +1007,7 @@ def ingest_preview():
 
     for grp in ev_groups:
         ev = grp["ev"]
+
         epr_db = Epreuve.query.filter_by(
             distance=ev["distance"], nage=ev["nage"], genre=ev["genre"],
             is_relay=ev["is_relay"], legs_count=ev["legs_count"]
@@ -953,10 +1028,16 @@ def ingest_preview():
             cat_label = cat_name or DEFAULT_CAT
             cats_seen.append(cat_label)
 
-            virt = {"categorie": cat_label, "details": [], "header_mapping": {}, "header_row_index": -1,
-                    "guessed_category": (cat_name is None)}
+            virt = {
+                "categorie": cat_label,
+                "details": [],
+                "header_mapping": {},
+                "header_row_index": -1,
+                "guessed_category": (cat_name is None),
+                "cec_id": None,
+            }
 
-            # conflit CEC déjà importé ?
+            # retrouver cec_id en base si existant
             cec_id = None
             if champ_db and epr_db:
                 cat_db = Categorie.query.filter_by(nom=cat_label).first()
@@ -966,19 +1047,49 @@ def ingest_preview():
                     ).first()
                     if cec:
                         cec_id = cec.cec_id
-                        if db.session.query(ResultatBase.resultat_id).filter_by(cec_id=cec_id).first():
-                            conflicts.append(cec_id)
             virt["cec_id"] = cec_id
 
             if ev["is_relay"]:
                 legs = ev["legs_count"] or 4
                 teams = parse_relay_groups(table, legs)
 
-                # (NEW) scan complet pour l’agrégateur
+                # scan complet agrégateur nageurs + delta_summary
                 for T in teams:
-                    club_name = clean_text(T.get("club", ""))
+                    club_name_all = clean_text(T.get("club", ""))
                     for mem in T.get("members", []):
-                        push_swimmer(mem.get("fullname", ""), mem.get("year", ""), club_name, mem.get("nation", ""))
+                        push_swimmer(mem.get("fullname", ""), mem.get("year", ""), club_name_all, mem.get("nation", ""))
+
+                    # delta status pour l'équipe si possible
+                    if cec_id and club_name_all:
+                        club_db = _find_club(club_name_all)
+                        if club_db:
+                            eq_db = Equipe.query.filter_by(cec_id=cec_id, id_club=club_db.id_club).first()
+                            if eq_db:
+                                rb = _find_relay_result(cec_id, eq_db.equipe_id)
+                            else:
+                                rb = None
+
+                            place_new, statut_new = parse_place_and_statut(T.get("place_txt", ""))
+                            temps_new = parse_time_raw(T.get("time", ""))
+                            try:
+                                pts_new = int(float(T.get("points", 0) or 0))
+                            except:
+                                pts_new = 0
+
+                            if not rb:
+                                delta_inserted += 1
+                            else:
+                                changes = diff_base_fields(rb, points=pts_new, place=place_new, temps=temps_new, statut=statut_new)
+                                if not changes:
+                                    delta_unchanged += 1
+                                else:
+                                    delta_updated += 1
+                        else:
+                            # club inexistant => sera créé => "new"
+                            delta_inserted += 1
+                    else:
+                        # pas de cec existant => new
+                        delta_inserted += 1
 
                 # affichage (échantillon)
                 out = []
@@ -986,8 +1097,26 @@ def ingest_preview():
                     club_name = clean_text(t.get("club", ""))
                     club = _find_club(club_name) if club_name else None
                     pl_raw = t.get("place_txt", "")
-                    pl, _ = parse_place_and_statut(pl_raw)
+                    pl, stt = parse_place_and_statut(pl_raw)
+
+                    team_status = "new"
+                    if cec_id and club:
+                        eq_db = Equipe.query.filter_by(cec_id=cec_id, id_club=club.id_club).first()
+                        if eq_db:
+                            rb = _find_relay_result(cec_id, eq_db.equipe_id)
+                        else:
+                            rb = None
+                        temps_new = parse_time_raw(t.get("time", ""))
+                        try:
+                            pts_new = int(float(t.get("points", 0) or 0))
+                        except:
+                            pts_new = 0
+                        if rb:
+                            changes = diff_base_fields(rb, points=pts_new, place=pl, temps=temps_new, statut=stt)
+                            team_status = "unchanged" if not changes else "updated"
+
                     block = {
+                        "row_status": team_status,  # NEW
                         "place_raw": pl_raw,
                         "place": pl,
                         "club": club_name,
@@ -1019,14 +1148,16 @@ def ingest_preview():
                 rows = table.find_all("tr")
                 rows = rows[header_idx + 1:] if header_idx >= 0 else rows[1:]
 
-                # (NEW) scan complet agrégateur
+                # scan complet agrégateur nageurs + delta_summary
                 for r in rows:
                     tds = r.find_all("td")
                     if not tds:
                         continue
+
                     def pick_all(key, default=""):
                         i = col.get(key)
                         return clean_text(tds[i].get_text(" ", strip=True)) if i is not None and i < len(tds) else default
+
                     fullname_all = pick_all("name")
                     if not fullname_all:
                         continue
@@ -1035,15 +1166,49 @@ def ingest_preview():
                     nation_all    = pick_all("nation")
                     push_swimmer(fullname_all, birth_all, club_nom_all, nation_all)
 
+                    # delta status si possible
+                    if cec_id and club_nom_all:
+                        club_db = _find_club(club_nom_all)
+                        nageur_db = _find_nageur(fullname_all, birth_all, club_db) if club_db else None
+
+                        place_raw_all = pick_all("place")
+                        temps_raw_all = pick_all("time")
+                        pts_raw_all   = pick_all("points")
+
+                        place_new, statut_new = parse_place_and_statut(place_raw_all)
+                        temps_new = parse_time_raw(temps_raw_all)
+                        try:
+                            pts_new = int(float(pts_raw_all)) if pts_raw_all else 0
+                        except:
+                            pts_new = 0
+
+                        if club_db and nageur_db:
+                            rb = _find_indiv_result(cec_id, nageur_db.id_nageur)
+                        else:
+                            rb = None
+
+                        if not rb:
+                            delta_inserted += 1
+                        else:
+                            changes = diff_base_fields(rb, points=pts_new, place=place_new, temps=temps_new, statut=statut_new)
+                            if not changes:
+                                delta_unchanged += 1
+                            else:
+                                delta_updated += 1
+                    else:
+                        delta_inserted += 1
+
                 # affichage (échantillon)
                 det = []
                 for r in rows:
                     tds = r.find_all("td")
                     if not tds:
                         continue
+
                     def pick(key, default=""):
                         i = col.get(key)
                         return clean_text(tds[i].get_text(" ", strip=True)) if i is not None and i < len(tds) else default
+
                     fullname = pick("name")
                     if not fullname:
                         continue
@@ -1053,12 +1218,32 @@ def ingest_preview():
                     place_raw = pick("place")
                     temps_raw = pick("time")
                     pts_raw   = pick("points")
+
                     club = _find_club(club_nom) if club_nom else None
                     nageur = _find_nageur(fullname, birth, club) if club else None
+
+                    row_status = "new"
+                    if cec_id and club and nageur:
+                        rb = _find_indiv_result(cec_id, nageur.id_nageur)
+                        if rb:
+                            place_new, statut_new = parse_place_and_statut(place_raw)
+                            temps_new = parse_time_raw(temps_raw)
+                            try:
+                                pts_new = int(float(pts_raw)) if pts_raw else 0
+                            except:
+                                pts_new = 0
+                            changes = diff_base_fields(rb, points=pts_new, place=place_new, temps=temps_new, statut=statut_new)
+                            row_status = "unchanged" if not changes else "updated"
+
                     det.append({
-                        "fullname": fullname, "club": club_nom, "nation": nation,
+                        "row_status": row_status,  # NEW
+                        "fullname": fullname,
+                        "club": club_nom,
+                        "nation": nation,
                         "birth_year": (int(birth) if birth.isdigit() else None),
-                        "place_raw": place_raw, "time": temps_raw, "points_raw": pts_raw,
+                        "place_raw": place_raw,
+                        "time": temps_raw,
+                        "points_raw": pts_raw,
                         "would_create_club": (club is None),
                         "would_create_swimmer": (nageur is None) or (club is None),
                         "error": ("Club manquant" if not club_nom else None),
@@ -1071,7 +1256,6 @@ def ingest_preview():
 
         events_preview.append(event_out)
 
-    # (NEW) liste unique + tri par clé
     swimmers_list = []
     for key in sorted(sw_seen.keys()):
         v = sw_seen[key]
@@ -1083,7 +1267,7 @@ def ingest_preview():
             **{k: v[k] for k in ("key","fullname","nom","prenom","birth_year","club","existing")},
             "nations": nations,
             "default_eligible_points": bool(default_ep),
-            "needs_approval": (not any(is_tunisian(n) for n in nations)),  # TUN non demandé
+            "needs_approval": (not any(is_tunisian(n) for n in nations)),
             "conflict": (key in conflict_keys),
         })
 
@@ -1091,14 +1275,21 @@ def ingest_preview():
         "status": "ok",
         "preview": True,
         "championnat": {
-            "nom": meta["nom"], "saison": saison_label, "lieu": meta["lieu"], "bassin": meta["bassin"],
-            "datedeb": str(meta["datedeb"]), "datefin": str(meta["datefin"]),
+            "nom": meta["nom"],
+            "saison": saison_label,
+            "lieu": meta["lieu"],
+            "bassin": meta["bassin"],
+            "datedeb": str(meta["datedeb"]),
+            "datefin": str(meta["datefin"]),
         },
         "events": events_preview,
-        "epreuve": (events_preview[0]["epreuve"] if events_preview else None),
         "categories": sorted(set(cats_seen)),
-        "conflicts_cec_ids": sorted(set(conflicts)),
-        "swimmers_verification": swimmers_list,          # (NEW)
-        "swimmer_conflicts_keys": sorted(conflict_keys), # (NEW)
+        "delta_summary": {  # NEW
+            "inserted": int(delta_inserted),
+            "updated": int(delta_updated),
+            "unchanged": int(delta_unchanged),
+        },
+        "swimmers_verification": swimmers_list,
+        "swimmer_conflicts_keys": sorted(conflict_keys),
         "url": url,
     })

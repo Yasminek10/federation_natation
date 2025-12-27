@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Accordion,
   Alert,
@@ -11,9 +10,6 @@ import {
   Spinner,
   Table,
 } from "react-bootstrap";
-
-// Assure-toi d'importer le CSS Bootstrap une seule fois, par ex. dans src/index.js :
-// import 'bootstrap/dist/css/bootstrap.min.css';
 
 export default function ImportResults() {
   const [url, setUrl] = useState("");
@@ -27,7 +23,6 @@ export default function ImportResults() {
   const [conflicts, setConflicts] = useState([]); // keys conflit de nationalités
   const [approvals, setApprovals] = useState({}); // { swimmer_key: bool }
 
-  // Afficher seulement les non-TUN à approuver
   const swimmersToVerify = useMemo(
     () => (swimmers || []).filter((s) => !!s.needs_approval),
     [swimmers]
@@ -41,6 +36,7 @@ export default function ImportResults() {
     setConflicts([]);
     setApprovals({});
     setLoadingPreview(true);
+
     try {
       const res = await fetch("http://localhost:5000/api/ingest/preview", {
         method: "POST",
@@ -49,12 +45,14 @@ export default function ImportResults() {
         body: JSON.stringify({ url, limit: 8 }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         setMsg({ type: "error", text: data.message || "Erreur de prévisualisation." });
       } else {
         setPreview(data);
         setSwimmers(Array.isArray(data.swimmers_verification) ? data.swimmers_verification : []);
         setConflicts(Array.isArray(data.swimmer_conflicts_keys) ? data.swimmer_conflicts_keys : []);
+
         // Préremplir uniquement pour non-TUN (needs_approval)
         const init = {};
         (data.swimmers_verification || []).forEach((s) => {
@@ -93,14 +91,17 @@ export default function ImportResults() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ url, approvals }), // (NEW) on envoie approvals
+        body: JSON.stringify({ url, approvals }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         setMsg({ type: "error", text: data.message || "Erreur d'import." });
       } else {
-        const inserted = typeof data?.inserted === "number" ? data.inserted : "?";
-        setMsg({ type: "success", text: `Import OK: ${inserted} lignes.` });
+        const ins = typeof data?.inserted === "number" ? data.inserted : 0;
+        const upd = typeof data?.updated === "number" ? data.updated : 0;
+        const unch = typeof data?.unchanged === "number" ? data.unchanged : 0;
+        setMsg({ type: "success", text: `Import OK — Ajoutés: ${ins}, Modifiés: ${upd}, Inchangés: ${unch}` });
       }
     } catch (err) {
       setMsg({ type: "error", text: String(err) });
@@ -111,13 +112,23 @@ export default function ImportResults() {
 
   const isMulti = !!(preview && Array.isArray(preview.events));
 
-  // ---- UI Helpers ----
+  const StatusBadge = ({ status }) => {
+    if (status === "new") return <Badge bg="success">Nouveau</Badge>;
+    if (status === "updated") return <Badge bg="warning" text="dark">Modifié</Badge>;
+    if (status === "unchanged") return <Badge bg="secondary">Inchangé</Badge>;
+    return <Badge bg="light" text="dark">—</Badge>;
+  };
+
   const EventHeader = ({ ev }) => {
     if (!ev) return null;
     const dist = ev.distance_par_jambe ?? ev.distance ?? "";
-    const main = ev.is_relay ? `${ev.nage} ${ev.legs_count}×${dist} m` : `${ev.nage} ${dist}${dist ? " m" : ""}`;
+    const main = ev.is_relay
+      ? `${ev.nage} ${ev.legs_count}×${dist} m`
+      : `${ev.nage} ${dist}${dist ? " m" : ""}`;
     return (
-      <div className="text-muted"> <strong>Épreuve</strong> {main} — {ev.genre}{ev.is_relay ? " (Relais)" : ""} </div>
+      <div className="text-muted">
+        <strong>Épreuve</strong> {main} — {ev.genre}{ev.is_relay ? " (Relais)" : ""}
+      </div>
     );
   };
 
@@ -128,6 +139,7 @@ export default function ImportResults() {
         <div><strong>Catégorie:</strong></div>
         <Badge bg="secondary">{cec.categorie}</Badge>
         {cec.guessed_category ? <Badge bg="light" text="dark">auto</Badge> : null}
+        {cec.cec_id ? <Badge bg="info">CEC existant</Badge> : <Badge bg="success">CEC nouveau</Badge>}
       </div>
     );
   };
@@ -188,6 +200,7 @@ export default function ImportResults() {
         <Table hover bordered size="sm" className="align-middle">
           <thead>
             <tr>
+              <th>Statut</th>
               <th>Nom</th>
               <th>Club</th>
               <th>Nation</th>
@@ -199,6 +212,7 @@ export default function ImportResults() {
           <tbody>
             {(cec.details || []).map((d, j) => (
               <tr key={j}>
+                <td><StatusBadge status={d.row_status} /></td>
                 <td className="fw-medium">{d.fullname}</td>
                 <td>{d.club || <span className="text-danger">—</span>}</td>
                 <td>{d.nation || "—"}</td>
@@ -221,6 +235,7 @@ export default function ImportResults() {
           <Card key={k} className="border-0 shadow-sm">
             <Card.Body>
               <div className="d-flex flex-wrap align-items-center gap-2 mb-1 small">
+                <StatusBadge status={t.row_status} />
                 <div className="fw-semibold">Équipe</div>
                 <Badge bg="secondary">{t.club || <span className="text-danger">manquant</span>}</Badge>
                 <div>Temps: <span className="fw-semibold">{t.time || "—"}</span></div>
@@ -272,7 +287,12 @@ export default function ImportResults() {
             </div>
             <div className="d-flex gap-2 align-items-end">
               <Button type="submit" variant="primary" disabled={loadingPreview}>
-                {loadingPreview ? (<><Spinner animation="border" size="sm" className="me-2" /> Prévisualisation…</>) : "Prévisualiser"}
+                {loadingPreview ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Prévisualisation…
+                  </>
+                ) : "Prévisualiser"}
               </Button>
               <Button
                 type="button"
@@ -280,7 +300,12 @@ export default function ImportResults() {
                 disabled={loadingImport || !url || !preview || conflicts.length > 0}
                 onClick={doImport}
               >
-                {loadingImport ? (<><Spinner animation="border" size="sm" className="me-2" /> Import…</>) : "Importer"}
+                {loadingImport ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Import…
+                  </>
+                ) : "Importer"}
               </Button>
             </div>
           </Form>
@@ -303,8 +328,19 @@ export default function ImportResults() {
                     <div><strong>Champ.</strong> {preview.championnat?.nom} — {preview.championnat?.saison}</div>
                     <div><strong>Lieu</strong> {preview.championnat?.lieu}</div>
                     <Badge bg="light" text="dark">{preview.championnat?.bassin} m</Badge>
-                    <div className="ms-auto text-muted"><strong className="text-dark">Dates</strong> {preview.championnat?.datedeb} → {preview.championnat?.datefin}</div>
+                    <div className="ms-auto text-muted">
+                      <strong className="text-dark">Dates</strong> {preview.championnat?.datedeb} → {preview.championnat?.datefin}
+                    </div>
                   </div>
+
+                  {preview.delta_summary && (
+                    <div className="mt-2 d-flex flex-wrap gap-2">
+                      <Badge bg="success">À ajouter: {preview.delta_summary.inserted}</Badge>
+                      <Badge bg="warning" text="dark">À modifier: {preview.delta_summary.updated}</Badge>
+                      <Badge bg="secondary">Inchangés: {preview.delta_summary.unchanged}</Badge>
+                    </div>
+                  )}
+
                   {Array.isArray(preview.categories) && (
                     <div className="mt-2 d-flex flex-wrap gap-2">
                       {(preview.categories || []).map((c) => (
@@ -312,23 +348,20 @@ export default function ImportResults() {
                       ))}
                     </div>
                   )}
-                  {Array.isArray(preview.conflicts_cec_ids) && preview.conflicts_cec_ids.length > 0 && (
-                    <Alert variant="danger" className="mt-2 mb-0">Ce championnat semble déjà importé.</Alert>
-                  )}
                 </Card.Body>
               </Card>
 
-              {/* Panneau d’approbation — uniquement non-TUN */}
               <VerificationTable />
 
-              {/* Résultats */}
               {isMulti ? (
                 <Accordion alwaysOpen className="mt-3">
                   {(preview.events || []).map((evBlock, idx) => (
                     <Accordion.Item eventKey={`ev-${idx}`} key={idx}>
                       <Accordion.Header>
                         <div className="d-flex flex-column">
-                          <div className="fw-semibold">{evBlock?.epreuve?.nage} • {evBlock?.epreuve?.genre} {evBlock?.epreuve?.is_relay ? "• Relais" : ""}</div>
+                          <div className="fw-semibold">
+                            {evBlock?.epreuve?.nage} • {evBlock?.epreuve?.genre} {evBlock?.epreuve?.is_relay ? "• Relais" : ""}
+                          </div>
                           <EventHeader ev={evBlock.epreuve} />
                         </div>
                       </Accordion.Header>
@@ -352,28 +385,9 @@ export default function ImportResults() {
                   ))}
                 </Accordion>
               ) : (
-                <Accordion className="mt-3">
-                  <Accordion.Item eventKey="single-ev">
-                    <Accordion.Header>
-                      <div className="d-flex flex-column">
-                        <div className="fw-semibold">{preview.epreuve?.nage} • {preview.epreuve?.genre} {preview.epreuve?.is_relay ? "• Relais" : ""}</div>
-                        <EventHeader ev={preview.epreuve} />
-                      </div>
-                    </Accordion.Header>
-                    <Accordion.Body>
-                      <div className="d-grid gap-3">
-                        {(preview.cecs || []).map((c, i) => (
-                          <Card key={i} className="border-0 shadow-sm">
-                            <Card.Body>
-                              <CategoryHeader cec={c} />
-                              {preview.epreuve?.is_relay ? <RelayBlock cec={c} /> : <NonRelayTable cec={c} />}
-                            </Card.Body>
-                          </Card>
-                        ))}
-                      </div>
-                    </Accordion.Body>
-                  </Accordion.Item>
-                </Accordion>
+                <Alert variant="info" className="mt-3">
+                  Preview multi-épreuves non détecté (mode simple).
+                </Alert>
               )}
             </div>
           )}
