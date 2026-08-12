@@ -200,11 +200,15 @@ def _pair_gender_rankings(champ: Championnat, categorie_id: int, is_relay: bool 
 def _swimmer_points_in_champ(nageur_id: int, champ_id: int, categorie_id: int) -> int:
     """
     Somme des points INDIVIDUELS éligibles d’un nageur :
+      - place renseignée et comprise dans la limite de la catégorie
       - statut == 'OK'
       - nageur éligible (nationalité TN ou eligible_points)
       - respect des minimas (épreuve + catégorie)
     Les relais ne sont pas inclus (jointure via ResultatIndividuel).
     """
+    categorie = db.session.get(Categorie, categorie_id)
+    cap = _cap(categorie.max_places_indiv if categorie else None, 8)
+
     q = (db.session.query(ResultatBase, CEC, Epreuve)
          .join(CEC, CEC.cec_id == ResultatBase.cec_id)
          .join(ResultatIndividuel, ResultatIndividuel.resultat_id == ResultatBase.resultat_id)
@@ -213,7 +217,10 @@ def _swimmer_points_in_champ(nageur_id: int, champ_id: int, categorie_id: int) -
              CEC.champ_id == champ_id,
              CEC.categorie_id == categorie_id,
              ResultatIndividuel.id_nageur == nageur_id,
-             ResultatBase.statut == "OK"      # <- statut OK obligatoire
+             ResultatBase.statut == "OK",
+             ResultatBase.place.isnot(None),
+             ResultatBase.place >= 1,
+             ResultatBase.place <= cap,
          ))
 
     nageur = Nageur.query.get(nageur_id)

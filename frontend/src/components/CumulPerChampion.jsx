@@ -43,16 +43,28 @@ export default function ClassementChampionnat({ champId }) {
   }
 
   // Somme totale des points par club (toutes catégories)
+  const formatPoints = (value) =>
+    new Intl.NumberFormat("fr-FR").format(value || 0);
+
   const totalPointsParClub = {};
   (championnat.categories || []).forEach((cat) =>
     (cat.classement || []).forEach((c) => {
-      totalPointsParClub[c.club] =
-        (totalPointsParClub[c.club] || 0) + (c.points || 0);
+      const current = totalPointsParClub[c.club] || {
+        points_individuels: 0,
+        points_relais_bruts: 0,
+        points_relais: 0,
+        points: 0,
+      };
+      current.points_individuels += c.points_individuels || 0;
+      current.points_relais_bruts += c.points_relais_bruts || 0;
+      current.points_relais += c.points_relais || 0;
+      current.points += c.points || 0;
+      totalPointsParClub[c.club] = current;
     })
   );
 
   const top3Clubs = Object.entries(totalPointsParClub)
-    .map(([club, points]) => ({ club, points }))
+    .map(([club, details]) => ({ club, ...details }))
     .sort((a, b) => b.points - a.points)
     .slice(0, 3);
 
@@ -67,13 +79,16 @@ export default function ClassementChampionnat({ champId }) {
               <tr>
                 <th style={{ width: 90 }}>Rang</th>
                 <th>Club</th>
-                <th style={{ width: 160 }}>Points</th>
+                <th>Individuels</th>
+                <th>Relais bruts</th>
+                <th>Relais &times;2</th>
+                <th style={{ width: 160 }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {top3Clubs.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center text-muted py-3">
+                  <td colSpan={6} className="text-center text-muted py-3">
                     Aucun club avec des points
                   </td>
                 </tr>
@@ -91,7 +106,10 @@ export default function ClassementChampionnat({ champId }) {
                       </Badge>
                     </td>
                     <td className="fw-semibold">{c.club}</td>
-                    <td className="fw-bold text-success">{c.points}</td>
+                    <td>{formatPoints(c.points_individuels)}</td>
+                    <td>{formatPoints(c.points_relais_bruts)}</td>
+                    <td>{formatPoints(c.points_relais)}</td>
+                    <td className="fw-bold text-success">{formatPoints(c.points)}</td>
                   </tr>
                 ))
               )}
@@ -118,36 +136,75 @@ export default function ClassementChampionnat({ champId }) {
                   <tr>
                     <th style={{ width: 90 }}>Rang</th>
                     <th>Club</th>
-                    <th style={{ width: 140 }}>Points</th>
+                    <th>Individuels</th>
+                    <th>Relais bruts</th>
+                    <th>Relais &times;2</th>
+                    <th style={{ width: 140 }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(cat.classement || []).length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="text-center text-muted py-3">
+                      <td colSpan={6} className="text-center text-muted py-3">
                         Aucun club classé pour cette catégorie
                       </td>
                     </tr>
                   ) : (
                     (cat.classement || []).map((club, i) => (
-                      <tr key={club.champId ?? i}>
-                        <td>
-                          <Badge
-                            bg={
-                              i === 0
-                                ? "warning"
-                                : i === 1
-                                ? "secondary"
-                                : "light"
-                            }
-                            text="dark"
-                          >
-                            {i + 1}
-                          </Badge>
-                        </td>
-                        <td>{club.club}</td>
-                        <td className="fw-bold">{club.points}</td>
-                      </tr>
+                      <React.Fragment key={`${cat.categorie}-${club.club}`}>
+                        <tr>
+                          <td>
+                            <Badge
+                              bg={
+                                i === 0
+                                  ? "warning"
+                                  : i === 1
+                                  ? "secondary"
+                                  : "light"
+                              }
+                              text="dark"
+                            >
+                              {i + 1}
+                            </Badge>
+                          </td>
+                          <td>{club.club}</td>
+                          <td>{formatPoints(club.points_individuels)}</td>
+                          <td>{formatPoints(club.points_relais_bruts)}</td>
+                          <td>{formatPoints(club.points_relais)}</td>
+                          <td className="fw-bold">{formatPoints(club.points)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={6} className="p-0 bg-light text-start">
+                            <details className="px-3 py-2">
+                              <summary className="text-primary fw-semibold">
+                                D&eacute;tail du calcul ({(club.details || []).length} nages)
+                              </summary>
+                              <Table responsive bordered size="sm" className="mt-2 mb-1 bg-white">
+                                <thead className="table-light">
+                                  <tr>
+                                    <th>&Eacute;preuve</th>
+                                    <th>Nageur / &Eacute;quipe</th>
+                                    <th>Type</th>
+                                    <th>Points bruts</th>
+                                    <th>Points compt&eacute;s</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(club.details || []).map((detail, detailIndex) => (
+                                    <tr key={`${detail.epreuve}-${detail.participant}-${detailIndex}`}>
+                                      <td>{detail.epreuve}</td>
+                                      <td>{detail.participant}</td>
+                                      <td>{detail.type}</td>
+                                      <td>{formatPoints(detail.points_bruts)}</td>
+                                      <td className="fw-semibold">{formatPoints(detail.points)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </Table>
+                            </details>
+                          </td>
+                        </tr>
+                      </React.Fragment>
                     ))
                   )}
                 </tbody>

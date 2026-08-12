@@ -334,9 +334,83 @@ def _parse_event_text(txt: str):
         return {"is_relay": True, "legs_count": int(legs), "distance": dist, "nage": nage, "genre": genre, "raw": t}
     return {"is_relay": False, "legs_count": None, "distance": dist, "nage": nage, "genre": genre, "raw": t}
 
+def _round_from_text(txt: str) -> str | None:
+    """Détecte la phase annoncée avant un tableau FTN."""
+    normalized = clean_text(txt).upper().replace("É", "E")
+    match = re.search(r"\bFINALE\s*([A-Z])\b", normalized)
+    if match:
+        return f"FINAL_{match.group(1)}"
+    if re.search(r"\bSERIES?\b", normalized):
+        return "SERIES"
+    return None
+
+def _table_competitor_count(table) -> int:
+    """Compte uniquement les résultats classés OK ; NC/DSQ ne prennent pas de rang."""
+    col, header_idx = header_map_from_table(table)
+    name_idx = col.get("name")
+    place_idx = col.get("place")
+    if name_idx is None or place_idx is None:
+        return 0
+    count = 0
+    for row in table.find_all("tr")[header_idx + 1:]:
+        cells = row.find_all("td")
+        if name_idx >= len(cells) or place_idx >= len(cells):
+            continue
+        fullname = clean_text(cells[name_idx].get_text(" ", strip=True))
+        raw_place = clean_text(cells[place_idx].get_text(" ", strip=True))
+        place, statut = parse_place_and_statut(raw_place)
+        if fullname and place is not None and statut == "OK":
+            count += 1
+    return count
+
+def _select_scoring_sections(sections):
+    """Privilégie les finales par catégorie et construit leurs places globales."""
+    grouped = {}
+    category_order = []
+    for cat_label, table, phase in sections:
+        if cat_label not in grouped:
+            grouped[cat_label] = []
+            category_order.append(cat_label)
+        grouped[cat_label].append((table, phase))
+
+    selected = []
+    for cat_label in category_order:
+        candidates = grouped[cat_label]
+        finals = [(table, phase) for table, phase in candidates if (phase or "").startswith("FINAL_")]
+        if finals:
+            offset = 0
+            for table, phase in sorted(finals, key=lambda item: item[1]):
+                table.attrs["_ftn_place_offset"] = str(offset)
+                table.attrs["_ftn_phase"] = phase
+                table.attrs["_ftn_final_mode"] = "1"
+                selected.append((cat_label, table))
+                offset += _table_competitor_count(table)
+            # Les séries sont gardées comme réserve. L'import exclura les finalistes
+            # déjà vus et ne prendra que le nombre nécessaire pour atteindre le quota.
+            for table, phase in candidates:
+                if phase == "SERIES":
+                    table.attrs["_ftn_place_offset"] = str(offset)
+                    table.attrs["_ftn_phase"] = "SERIES"
+                    table.attrs["_ftn_final_mode"] = "1"
+                    table.attrs["_ftn_series_supplement"] = "1"
+                    selected.append((cat_label, table))
+        else:
+            for table, phase in candidates:
+                table.attrs["_ftn_place_offset"] = "0"
+                table.attrs["_ftn_phase"] = phase or "UNSPECIFIED"
+                table.attrs["_ftn_final_mode"] = "0"
+                selected.append((cat_label, table))
+    return selected
+
+def _parse_table_place(raw_place: str, table) -> tuple[int | None, str]:
+    place, statut = parse_place_and_statut(raw_place)
+    if place is not None:
+        place += int(table.attrs.get("_ftn_place_offset", 0) or 0)
+    return place, statut
+
 def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = None):
     events = []
-    curr_event, curr_cat = None, None
+    curr_event, curr_cat, curr_round = None, None, None
     fallback_cat = default_cat or DEFAULT_CAT
 
     for node in soup.body.descendants:
@@ -348,10 +422,16 @@ def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = No
                 curr_event = {"ev": ev, "sections": []}
                 events.append(curr_event)
                 curr_cat = None
+                curr_round = None
+                continue
+            detected_round = _round_from_text(txt)
+            if detected_round:
+                curr_round = detected_round
                 continue
             cat = detect_category(txt or "")
             if cat:
                 curr_cat = cat
+                curr_round = None
                 continue
 
         if name == "table":
@@ -359,22 +439,38 @@ def collect_events_with_tables(soup: BeautifulSoup, default_cat: str | None = No
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
                 if curr_event is not None:
                     cat_label = curr_cat or fallback_cat
-                    curr_event["sections"].append((cat_label, node))
+                    curr_event["sections"].append((cat_label, node, curr_round))
 
+    for event in events:
+        if event["ev"]["is_relay"]:
+            event["sections"] = [(cat_label, table) for cat_label, table, _phase in event["sections"]]
+        else:
+            event["sections"] = _select_scoring_sections(event["sections"])
     return [e for e in events if e["sections"]]
 
-def iter_category_tables(soup: BeautifulSoup, default_cat: str | None = None):
-    curr_cat = None
+def iter_category_tables(soup: BeautifulSoup, default_cat: str | None = None, is_relay: bool = False):
+    curr_cat, curr_round = None, None
     fallback_cat = default_cat or DEFAULT_CAT
+    sections = []
     for node in soup.body.descendants:
         if getattr(node, "name", None) in ("font", "b", "u", "p"):
-            cat = detect_category(node.get_text() or "")
+            txt = node.get_text() or ""
+            detected_round = _round_from_text(txt)
+            if detected_round:
+                curr_round = detected_round
+                continue
+            cat = detect_category(txt)
             if cat:
                 curr_cat = cat
+                curr_round = None
         if getattr(node, "name", None) == "table":
             headers = [clean_text(td.get_text()) for td in node.find_all("td")]
             if any("Nom et prénom" in h for h in headers) and any(h.lower().startswith("place") for h in headers):
-                yield (curr_cat or fallback_cat), node
+                sections.append((curr_cat or fallback_cat, node, curr_round))
+    if is_relay:
+        yield from ((cat_label, table) for cat_label, table, _phase in sections)
+    else:
+        yield from _select_scoring_sections(sections)
 
 # --- entêtes robustes ---
 
@@ -688,11 +784,16 @@ def ingest_url():
         single = parse_event_heading(soup)
         if not single:
             return jsonify({"status": "error", "message": "Aucune épreuve détectée"}), 422
-        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup, default_cat=meta.get("default_category")))}]
+        ev_groups = [{"ev": single, "sections": list(iter_category_tables(
+            soup,
+            default_cat=meta.get("default_category"),
+            is_relay=single["is_relay"],
+        ))}]
 
     # 3) Construire CEC (ensure) + items
     pending_items = []
     cats_seen = []
+    final_cec_ids = set()
 
     for grp in ev_groups:
         ev = grp["ev"]
@@ -701,7 +802,15 @@ def ingest_url():
             cat_label = cat_name or DEFAULT_CAT
             cat = ensure_categorie(cat_label)
             cec = ensure_cec(champ.champ_id, epr.epreuve_id, cat.categorie_id)
-            pending_items.append({"cec_id": cec.cec_id, "table": table, "ev": ev})
+            pending_items.append({
+                "cec_id": cec.cec_id,
+                "table": table,
+                "ev": ev,
+                "phase": table.attrs.get("_ftn_phase", "UNSPECIFIED"),
+                "max_places_indiv": int(cat.max_places_indiv or 8),
+            })
+            if table.attrs.get("_ftn_final_mode") == "1":
+                final_cec_ids.add(cec.cec_id)
             cats_seen.append(cat.nom)
 
     if not pending_items:
@@ -713,9 +822,16 @@ def ingest_url():
     inserted = 0
     updated = 0
     unchanged = 0
+    seen_individuals = {cec_id: set() for cec_id in final_cec_ids}
+    seen_teams = {cec_id: set() for cec_id in final_cec_ids}
+    final_swimmer_keys = {cec_id: set() for cec_id in final_cec_ids}
+    next_individual_place = {cec_id: 1 for cec_id in final_cec_ids}
+    final_slots_used = {cec_id: 0 for cec_id in final_cec_ids}
+    series_supplements_used = {cec_id: 0 for cec_id in final_cec_ids}
 
     for it in pending_items:
         cec_id, table, ev = it["cec_id"], it["table"], it["ev"]
+        phase = it["phase"]
 
         if ev["is_relay"]:
             legs = ev["legs_count"] or 4
@@ -728,6 +844,8 @@ def ingest_url():
 
                 club = ensure_club(team["club"])
                 eq = ensure_equipe(cec_id, club.id_club)
+                if cec_id in final_cec_ids:
+                    seen_teams[cec_id].add(eq.equipe_id)
 
                 cumul = extract_cumulative_passages(team.get("passages", ""))
                 leg_50_splits = compute_leg_50_splits_for_store(legs, dist_per_leg, cumul, team.get("time", ""))
@@ -797,7 +915,7 @@ def ingest_url():
                 pts_txt   = pick("points")
                 nation    = pick("nation")
 
-                place, statut = parse_place_and_statut(place_txt)
+                place, statut = _parse_table_place(place_txt, table)
                 temps = parse_time_raw(temps_raw)
                 try:
                     points = int(float(pts_txt)) if pts_txt else 0
@@ -807,9 +925,47 @@ def ingest_url():
                 club = ensure_club(club_nom)
 
                 sw_key = swimmer_key(fullname, annee, club_nom)
+
+                # Avec finales : classement continu des seuls résultats OK, puis
+                # complément éventuel depuis les séries sans reprendre les finalistes.
+                if cec_id in final_cec_ids:
+                    is_final = phase.startswith("FINAL_")
+                    is_series_supplement = phase == "SERIES"
+
+                    if is_series_supplement and sw_key in final_swimmer_keys[cec_id]:
+                        continue
+                    if is_final and sw_key in final_swimmer_keys[cec_id]:
+                        continue
+                    if is_final:
+                        final_swimmer_keys[cec_id].add(sw_key)
+                        # Un NC/DSQ ne marque pas, mais occupe tout de même l'une des
+                        # places réservées aux finales : il ne crée pas un supplément
+                        # additionnel depuis les séries.
+                        final_slots_used[cec_id] += 1
+
+                    if statut != "OK" or place is None:
+                        # On garde un NC/DSQ de finale pour l'historique, sans rang.
+                        if is_series_supplement:
+                            continue
+                        place = None
+                    else:
+                        global_place = next_individual_place[cec_id]
+                        if is_series_supplement:
+                            supplement_limit = max(
+                                0,
+                                it["max_places_indiv"] - final_slots_used[cec_id],
+                            )
+                            if series_supplements_used[cec_id] >= supplement_limit:
+                                continue
+                            series_supplements_used[cec_id] += 1
+                        place = global_place
+                        next_individual_place[cec_id] += 1
+
                 existing = _find_nageur(fullname, annee, club)
                 elig = compute_eligible_for_insert(nation, approvals, sw_key, existing)
                 nageur = ensure_nageur(fullname, annee, club, nation, eligible_points=elig)
+                if cec_id in final_cec_ids:
+                    seen_individuals[cec_id].add(nageur.id_nageur)
 
                 status, rid, changes = upsert_individual_result(
                     cec_id=cec_id,
@@ -825,6 +981,17 @@ def ingest_url():
                     updated += 1
                 else:
                     unchanged += 1
+
+    # Une réimportation d'une page avec finales doit également retirer les anciens
+    # résultats issus des séries, qui pouvaient avoir été stockés par l'ancien parseur.
+    for cec_id in final_cec_ids:
+        for base in ResultatBase.query.filter_by(cec_id=cec_id).all():
+            if base.resultat_individuel:
+                if base.resultat_individuel.id_nageur not in seen_individuals[cec_id]:
+                    db.session.delete(base)
+            elif base.resultat_relais:
+                if base.resultat_relais.equipe_id not in seen_teams[cec_id]:
+                    db.session.delete(base)
 
     db.session.commit()
 
@@ -958,7 +1125,11 @@ def ingest_preview():
         single = parse_event_heading(soup)
         if not single:
             return jsonify({"status": "error", "message": "Aucune épreuve détectée"}), 422
-        ev_groups = [{"ev": single, "sections": list(iter_category_tables(soup, default_cat=meta.get("default_category")))}]
+        ev_groups = [{"ev": single, "sections": list(iter_category_tables(
+            soup,
+            default_cat=meta.get("default_category"),
+            is_relay=single["is_relay"],
+        ))}]
 
     events_preview = []
     cats_seen = []
@@ -1069,7 +1240,7 @@ def ingest_preview():
                             else:
                                 rb = None
 
-                            place_new, statut_new = parse_place_and_statut(T.get("place_txt", ""))
+                            place_new, statut_new = _parse_table_place(T.get("place_txt", ""), table)
                             temps_new = parse_time_raw(T.get("time", ""))
                             try:
                                 pts_new = int(float(T.get("points", 0) or 0))
@@ -1097,7 +1268,7 @@ def ingest_preview():
                     club_name = clean_text(t.get("club", ""))
                     club = _find_club(club_name) if club_name else None
                     pl_raw = t.get("place_txt", "")
-                    pl, stt = parse_place_and_statut(pl_raw)
+                    pl, stt = _parse_table_place(pl_raw, table)
 
                     team_status = "new"
                     if cec_id and club:
@@ -1175,7 +1346,7 @@ def ingest_preview():
                         temps_raw_all = pick_all("time")
                         pts_raw_all   = pick_all("points")
 
-                        place_new, statut_new = parse_place_and_statut(place_raw_all)
+                        place_new, statut_new = _parse_table_place(place_raw_all, table)
                         temps_new = parse_time_raw(temps_raw_all)
                         try:
                             pts_new = int(float(pts_raw_all)) if pts_raw_all else 0
@@ -1226,7 +1397,7 @@ def ingest_preview():
                     if cec_id and club and nageur:
                         rb = _find_indiv_result(cec_id, nageur.id_nageur)
                         if rb:
-                            place_new, statut_new = parse_place_and_statut(place_raw)
+                            place_new, statut_new = _parse_table_place(place_raw, table)
                             temps_new = parse_time_raw(temps_raw)
                             try:
                                 pts_new = int(float(pts_raw)) if pts_raw else 0

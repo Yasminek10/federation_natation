@@ -59,6 +59,21 @@ def _meet_minima(epreuve_id: int, categorie_id: int, temps: str | None) -> bool:
     tm = time_to_seconds(m.temp_min)
     return (t is not None and tm is not None and t <= tm)
 
+def _individual_scoring_points(base: ResultatBase, nageur: Nageur) -> int:
+    """Points comptabilisés selon le règlement, sans modifier les points FTN stockés."""
+    if not base or not base.cec or base.statut != "OK" or base.place is None:
+        return 0
+    categorie = base.cec.categorie
+    configured_cap = categorie.max_places_indiv if categorie else None
+    cap = int(configured_cap or 8)
+    if base.place < 1 or base.place > cap:
+        return 0
+    if not _is_eligible_swimmer(nageur):
+        return 0
+    if not _meet_minima(base.cec.epreuve_id, base.cec.categorie_id, base.temps):
+        return 0
+    return int(base.points or 0)
+
 # --- AJOUT: normalisation texte + détection des championnats “TC” et des 4 catégories ---
 def _norm(txt: str | None) -> str:
     """lowercase + sans accents + trim"""
@@ -232,8 +247,9 @@ def get_nageur_details(public_id):
         sec = t2s(base.temps)
         if sec is not None and base.statut == "OK":
             indiv_secs.append(sec)
-        if base.points is not None:
-            indiv_points.append(base.points)
+        scoring_points = _individual_scoring_points(base, nageur)
+        if scoring_points > 0:
+            indiv_points.append(scoring_points)
 
         historiques.append({
             "championnat": label_champ_with_year(ch),
@@ -241,7 +257,8 @@ def get_nageur_details(public_id):
             "epreuve": f"{epr.distance}m {epr.nage} ({epr.genre})",
             "categorie": cat.nom,
             "temps": base.temps,
-            "points": base.points,
+            "points": scoring_points,
+            "points_bruts": base.points,
             "place": base.place,
             "statut": base.statut,
         })
@@ -453,7 +470,8 @@ def get_nageur_details(public_id):
             "epreuve": f"{epr.distance}m {epr.nage} ({epr.genre})",
             "nage": epr.nage,
             "distance": epr.distance,
-            "points": base.points,
+            "points": _individual_scoring_points(base, nageur),
+            "points_bruts": base.points,
             "temps": base.temps,
             "championnat": f"{ch.nom} ({ch.datedeb.year})"
         })
